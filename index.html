@@ -185,6 +185,8 @@
   td.col-hosp-even { background: rgba(31,138,70,0.05) !important; }
   tbody tr:hover td.col-hosp-odd,
   tbody tr:hover td.col-hosp-even { background: rgba(45,127,249,0.11) !important; }
+  td.col-hosp-odd,
+  td.col-hosp-even { background: inherit !important; }
 
   /* ── User bar ── */
   .user-bar {
@@ -412,18 +414,6 @@
   .legend-dot.red-dot { background: var(--red-bg); border: 1px solid var(--red); }
   .legend-dot.even-row { background: rgba(255,255,255,0.06); border: 1px solid var(--border); }
   .legend-dot.odd-row  { background: transparent; border: 1px solid var(--border); }
-
-  .district-inline-tag {
-    display: inline-block;
-    margin-bottom: 3px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    border: 1px solid currentColor;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    opacity: 0.95;
-  }
 
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
@@ -1188,6 +1178,24 @@ function sortHospitalsBySeverity(hospitals) {
   });
 }
 
+function orderHospitalsForDisplay(hospitals) {
+  const byDistrict = new Map();
+  hospitals.forEach((h) => {
+    if (!byDistrict.has(h.district)) byDistrict.set(h.district, []);
+    byDistrict.get(h.district).push(h);
+  });
+
+  const districts = Array.from(byDistrict.keys()).sort((a, b) => a.localeCompare(b));
+  const ordered = [];
+
+  districts.forEach((district) => {
+    const ranked = sortHospitalsBySeverity(byDistrict.get(district));
+    ordered.push(...ranked);
+  });
+
+  return ordered;
+}
+
 function getMedicineSeverityScore(med, visibleHospitals) {
   let critical = 0;
   let warning = 0;
@@ -1363,13 +1371,13 @@ function buildPrintPages(scope, value) {
 }
 
 function buildTableHeader() {
-  const visible = sortHospitalsBySeverity(getVisibleHospitals());
-  const districtGroups = {};
-  visible.forEach(h => {
-    if (!districtGroups[h.district]) districtGroups[h.district] = [];
-    districtGroups[h.district].push(h);
+  const visible = orderHospitalsForDisplay(getVisibleHospitals());
+  const districtGroups = new Map();
+  visible.forEach((h) => {
+    if (!districtGroups.has(h.district)) districtGroups.set(h.district, []);
+    districtGroups.get(h.district).push(h);
   });
-  const districtPalette = getDistrictPaletteMap(Object.keys(districtGroups));
+  const districtPalette = getDistrictPaletteMap(Array.from(districtGroups.keys()));
 
   let html = '<tr>';
   html += '<th class="left" rowspan="2">S.No</th>';
@@ -1377,26 +1385,24 @@ function buildTableHeader() {
   html += '<th class="left" rowspan="2" style="min-width:180px">Medicine</th>';
   html += '<th class="left" rowspan="2">Dosage</th>';
 
-  // District header spans with alternating district background emphasis
+  // Repeat district name every 4 hospitals in top header row
   let distIdx = 0;
-  Object.entries(districtGroups).forEach(([dist, hosps]) => {
+  districtGroups.forEach((hosps, dist) => {
     const tone = districtPalette.get(dist);
-    const distEmphasis = distIdx % 2 === 0 ? '' : 'filter:brightness(1.15)';
-    html += `<th colspan="${hosps.length * 3}" style="font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;background:${tone.bg};border-top:3px solid ${tone.border};color:${tone.text};text-shadow:0 1px 0 rgba(255,255,255,0.45);${distEmphasis}">${dist} DISTRICT</th>`;
+    const distEmphasis = distIdx % 2 === 0 ? '' : 'filter:brightness(1.08)';
+    for (let i = 0; i < hosps.length; i += 4) {
+      const chunkSize = Math.min(4, hosps.length - i);
+      html += `<th colspan="${chunkSize * 3}" style="font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;background:${tone.bg};border-top:3px solid ${tone.border};color:${tone.text};text-shadow:0 1px 0 rgba(255,255,255,0.45);${distEmphasis}">${dist} DISTRICT</th>`;
+    }
     distIdx++;
   });
   html += '</tr><tr>';
 
-  const districtColumnCount = {};
   visible.forEach((h, hi) => {
-    const withinDistrictIdx = districtColumnCount[h.district] || 0;
-    const showDistrictTag = withinDistrictIdx % 4 === 0;
-    districtColumnCount[h.district] = withinDistrictIdx + 1;
-
     const typeClass = `type-${h.type.toLowerCase()}`;
     const tone = districtPalette.get(h.district) || DISTRICT_COLOR_BANDS[0];
     const hospTint  = hi % 2 === 0 ? 'col-hosp-odd' : 'col-hosp-even';
-    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${tone.cellBg};color:${tone.text};font-weight:700" data-hospidx="${hi}">${showDistrictTag ? `<span class="district-inline-tag">${h.district}</span><br>` : ''}${h.name}<br><span style="font-size:9px;opacity:0.95;font-weight:600">[${h.type}] Stock</span></th>`;
+    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${tone.cellBg};color:${tone.text};font-weight:700" data-hospidx="${hi}">${h.name}<br><span style="font-size:9px;opacity:0.95;font-weight:600">[${h.type}] Stock</span></th>`;
     html += `<th class="${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text};font-weight:700">3M Cons</th>`;
     html += `<th class="hosp-group ${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text};font-weight:700">B-A</th>`;
   });
@@ -1405,7 +1411,7 @@ function buildTableHeader() {
 }
 
 function buildTable() {
-  const visible = sortHospitalsBySeverity(getVisibleHospitals());
+  const visible = orderHospitalsForDisplay(getVisibleHospitals());
   const rows = getFilteredRowsForDisplay(visible);
 
   document.getElementById('tableCount').textContent = `Showing ${rows.length} of ${liveData.length} medicines`;
