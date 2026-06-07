@@ -1240,14 +1240,14 @@ function pageCode(verticalIndex, horizontalIndex, useLetters) {
 }
 
 const DISTRICT_COLOR_BANDS = [
-  { bg: '#2b3657', border: '#3f63d6', cellBg: '#33406a', text: '#f8fbff' },
-  { bg: '#2f4a43', border: '#1f8a70', cellBg: '#39594f', text: '#f7fffb' },
-  { bg: '#4a3648', border: '#a8558b', cellBg: '#5a4358', text: '#fff8fd' },
-  { bg: '#4a3f2d', border: '#b7791f', cellBg: '#5b4d36', text: '#fffaf1' },
-  { bg: '#2f4351', border: '#2f81c7', cellBg: '#395364', text: '#f5fbff' },
-  { bg: '#433b52', border: '#7e5bef', cellBg: '#504662', text: '#faf8ff' },
-  { bg: '#3f4b31', border: '#6b9e2f', cellBg: '#4b5a3b', text: '#fbfff5' },
-  { bg: '#4a2f37', border: '#d65171', cellBg: '#5a3943', text: '#fff7fa' }
+  { bg: '#dfe7ff', border: '#3f63d6', cellBg: '#edf2ff', text: '#0b1e59' },
+  { bg: '#d8f2ea', border: '#1f8a70', cellBg: '#e8f8f2', text: '#0d4f43' },
+  { bg: '#f4dff0', border: '#a8558b', cellBg: '#f9e9f6', text: '#5c1f4a' },
+  { bg: '#f8ead6', border: '#b7791f', cellBg: '#fdf2e3', text: '#6a3f06' },
+  { bg: '#dff0f8', border: '#2f81c7', cellBg: '#ebf7fd', text: '#13466f' },
+  { bg: '#e8e2fb', border: '#7e5bef', cellBg: '#f1edff', text: '#3e2b84' },
+  { bg: '#e8f1db', border: '#6b9e2f', cellBg: '#f0f7e6', text: '#365a11' },
+  { bg: '#f9dde6', border: '#d65171', cellBg: '#fdebf1', text: '#6f1c35' }
 ];
 
 function getDistrictPaletteMap(districts) {
@@ -1370,7 +1370,7 @@ function buildTableHeader() {
   Object.entries(districtGroups).forEach(([dist, hosps]) => {
     const tone = districtPalette.get(dist);
     const distEmphasis = distIdx % 2 === 0 ? '' : 'filter:brightness(1.15)';
-    html += `<th colspan="${hosps.length * 3}" style="font-family:Rajdhani,sans-serif;font-size:12px;letter-spacing:1px;background:${tone.bg};border-top:2px solid ${tone.border};color:${tone.text};${distEmphasis}">${dist} DISTRICT</th>`;
+    html += `<th colspan="${hosps.length * 3}" style="font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;background:${tone.bg};border-top:3px solid ${tone.border};color:${tone.text};text-shadow:0 1px 0 rgba(255,255,255,0.45);${distEmphasis}">${dist} DISTRICT</th>`;
     distIdx++;
   });
   html += '</tr><tr>';
@@ -1379,9 +1379,9 @@ function buildTableHeader() {
     const typeClass = `type-${h.type.toLowerCase()}`;
     const tone = districtPalette.get(h.district) || DISTRICT_COLOR_BANDS[0];
     const hospTint  = hi % 2 === 0 ? 'col-hosp-odd' : 'col-hosp-even';
-    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${tone.cellBg};color:${tone.text}" data-hospidx="${hi}">${h.name}<br><span style="font-size:9px;opacity:0.8">[${h.type}] Stock</span></th>`;
-    html += `<th class="${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text}">3M Cons</th>`;
-    html += `<th class="hosp-group ${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text}">B-A</th>`;
+    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${tone.cellBg};color:${tone.text};font-weight:700" data-hospidx="${hi}">${h.name}<br><span style="font-size:9px;opacity:0.95;font-weight:600">[${h.type}] Stock</span></th>`;
+    html += `<th class="${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text};font-weight:700">3M Cons</th>`;
+    html += `<th class="hosp-group ${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text};font-weight:700">B-A</th>`;
   });
   html += '</tr>';
   document.getElementById('tableHead').innerHTML = html;
