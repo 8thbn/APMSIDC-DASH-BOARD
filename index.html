@@ -8,12 +8,12 @@
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
   :root {
-    --bg: #eef2f7;
-    --surface: #ffffff;
-    --surface2: #e6edf6;
-    --border: #c8d3e0;
-    --text: #0f172a;
-    --text-muted: #475569;
+    --bg: #d9e1ec;
+    --surface: #edf2f8;
+    --surface2: #dfe6f1;
+    --border: #b7c4d5;
+    --text: #0c1729;
+    --text-muted: #3f5068;
     --accent: #004fd7;
     --accent2: #1d6ff2;
     --green: #0f7a39;
@@ -25,15 +25,15 @@
     --phc: #0b63ce;
     --dhs: #1f8a46;
     --dme: #b54708;
-    --markapuram: #6f42c1;
-    --prakasam: #0f766e;
+    --markapuram: #5b39a8;
+    --prakasam: #0d6b63;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; min-height: 100vh; }
 
   .header {
-    background: linear-gradient(135deg, #f9fbfe 0%, #eaf0f8 45%, #f9fbfe 100%);
+    background: linear-gradient(135deg, #e9eef5 0%, #dce4ef 45%, #e9eef5 100%);
     border-bottom: 1px solid var(--border);
     padding: 12px 20px;
     display: flex; align-items: center; justify-content: space-between;
@@ -1239,6 +1239,25 @@ function pageCode(verticalIndex, horizontalIndex, useLetters) {
   return String(verticalIndex + 1) + String.fromCharCode(65 + horizontalIndex);
 }
 
+const DISTRICT_COLOR_BANDS = [
+  { bg: '#2b3657', border: '#3f63d6', cellBg: '#33406a', text: '#f8fbff' },
+  { bg: '#2f4a43', border: '#1f8a70', cellBg: '#39594f', text: '#f7fffb' },
+  { bg: '#4a3648', border: '#a8558b', cellBg: '#5a4358', text: '#fff8fd' },
+  { bg: '#4a3f2d', border: '#b7791f', cellBg: '#5b4d36', text: '#fffaf1' },
+  { bg: '#2f4351', border: '#2f81c7', cellBg: '#395364', text: '#f5fbff' },
+  { bg: '#433b52', border: '#7e5bef', cellBg: '#504662', text: '#faf8ff' },
+  { bg: '#3f4b31', border: '#6b9e2f', cellBg: '#4b5a3b', text: '#fbfff5' },
+  { bg: '#4a2f37', border: '#d65171', cellBg: '#5a3943', text: '#fff7fa' }
+];
+
+function getDistrictPaletteMap(districts) {
+  const map = new Map();
+  districts.forEach((district, idx) => {
+    map.set(district, DISTRICT_COLOR_BANDS[idx % DISTRICT_COLOR_BANDS.length]);
+  });
+  return map;
+}
+
 function buildPrintPages(scope, value) {
   const visible = sortHospitalsBySeverity(getVisibleHospitals());
   const rows = getFilteredRowsForDisplay(visible);
@@ -1338,6 +1357,7 @@ function buildTableHeader() {
     if (!districtGroups[h.district]) districtGroups[h.district] = [];
     districtGroups[h.district].push(h);
   });
+  const districtPalette = getDistrictPaletteMap(Object.keys(districtGroups));
 
   let html = '<tr>';
   html += '<th class="left" rowspan="2">S.No</th>';
@@ -1348,20 +1368,20 @@ function buildTableHeader() {
   // District header spans with alternating district background emphasis
   let distIdx = 0;
   Object.entries(districtGroups).forEach(([dist, hosps]) => {
-    const cls = dist === 'MARKAPURAM' ? 'district-markapuram' : 'district-prakasam';
+    const tone = districtPalette.get(dist);
     const distEmphasis = distIdx % 2 === 0 ? '' : 'filter:brightness(1.15)';
-    html += `<th colspan="${hosps.length * 3}" class="${cls}" style="font-family:Rajdhani,sans-serif;font-size:12px;letter-spacing:1px;${distEmphasis}">${dist} DISTRICT</th>`;
+    html += `<th colspan="${hosps.length * 3}" style="font-family:Rajdhani,sans-serif;font-size:12px;letter-spacing:1px;background:${tone.bg};border-top:2px solid ${tone.border};color:${tone.text};${distEmphasis}">${dist} DISTRICT</th>`;
     distIdx++;
   });
   html += '</tr><tr>';
 
   visible.forEach((h, hi) => {
     const typeClass = `type-${h.type.toLowerCase()}`;
-    const distClass = h.district === 'MARKAPURAM' ? 'district-markapuram' : 'district-prakasam';
+    const tone = districtPalette.get(h.district) || DISTRICT_COLOR_BANDS[0];
     const hospTint  = hi % 2 === 0 ? 'col-hosp-odd' : 'col-hosp-even';
-    html += `<th class="${distClass} ${typeClass} ${hospTint}" style="min-width:75px" data-hospidx="${hi}">${h.name}<br><span style="font-size:9px;opacity:0.7">[${h.type}] Stock</span></th>`;
-    html += `<th class="${distClass} ${hospTint}" style="font-size:10px">3M Cons</th>`;
-    html += `<th class="${distClass} hosp-group ${hospTint}" style="font-size:10px">B-A</th>`;
+    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${tone.cellBg};color:${tone.text}" data-hospidx="${hi}">${h.name}<br><span style="font-size:9px;opacity:0.8">[${h.type}] Stock</span></th>`;
+    html += `<th class="${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text}">3M Cons</th>`;
+    html += `<th class="hosp-group ${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text}">B-A</th>`;
   });
   html += '</tr>';
   document.getElementById('tableHead').innerHTML = html;
