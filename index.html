@@ -143,7 +143,7 @@
   }
   table { width: 100%; border-collapse: collapse; min-width: 900px; }
   thead { position: sticky; top: 0; z-index: 30; }
-  th { background: #1d2a3b; color: #f5f8ff; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 10px; text-align: center; border-bottom: 1px solid #2e425a; border-right: 1px solid #2e425a; white-space: nowrap; position: relative; z-index: 31; }
+  th { background: #1d2a3b; color: #f5f8ff; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 10px; text-align: center; vertical-align: top; border-bottom: 1px solid #2e425a; border-right: 1px solid #2e425a; white-space: nowrap; position: relative; z-index: 31; }
   th.left { text-align: left; }
   th.district-markapuram { background: #251f35; border-top: 2px solid var(--markapuram); }
   th.district-prakasam { background: #1a3038; border-top: 2px solid var(--prakasam); }
@@ -298,6 +298,7 @@
     padding: 3px 4px;
     text-align: center;
   }
+  .print-grid th { vertical-align: top; }
   .print-grid th.left,
   .print-grid td.left { text-align: left; }
   .print-grid th {
@@ -1508,7 +1509,7 @@ function buildPrintPages(scope, value) {
       });
       pageHtml += `</tr><tr>`;
       hospitalChunk.forEach(() => {
-        pageHtml += `<th><strong>A</strong> — Stock</th><th><strong>B</strong> — 3M Cons</th><th>B-A</th>`;
+        pageHtml += `<th><span style="display:block;font-weight:900;line-height:1">A</span><span style="display:block;line-height:1.1">Stock</span></th><th><span style="display:block;font-weight:900;line-height:1">B</span><span style="display:block;line-height:1.1">3M Cons</span></th><th>B-A</th>`;
       });
       pageHtml += `</tr></thead><tbody>`;
 
@@ -1529,8 +1530,8 @@ function buildPrintPages(scope, value) {
             const statusCode = status === 'critical' ? 'C' : status === 'warning' ? 'W' : 'A';
             const baVal = hd.ba;
             const baSign = baVal > 0 ? '+' : '';
-            pageHtml += `<td class="${statusClass}">${statusCode} ${hd.stock.toLocaleString()}</td>`;
-            pageHtml += `<td>${hd.consumption.toLocaleString()}</td>`;
+            pageHtml += `<td class="${statusClass}">A ${statusCode} ${hd.stock.toLocaleString()}</td>`;
+            pageHtml += `<td>B ${hd.consumption.toLocaleString()}</td>`;
             pageHtml += `<td>${baSign}${baVal.toLocaleString()}</td>`;
           }
         });
@@ -1584,8 +1585,8 @@ function buildTableHeader() {
     const tone = districtPalette.get(h.district) || DISTRICT_COLOR_BANDS[0];
     const hospTint  = hi % 2 === 0 ? 'col-hosp-odd' : 'col-hosp-even';
     const headerBg = hi % 2 === 0 ? '#1e2a3a' : '#223146';
-    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${headerBg};color:#ffffff;font-weight:700;border-top:2px solid ${tone.border}" data-hospidx="${hi}">${h.name}<br><span style="font-size:10px;opacity:1;font-weight:800;color:#ffdd57">[${h.type}]</span><br><span style="font-size:11px;font-weight:900;color:#7dd3fc;letter-spacing:0.5px">A</span> <span style="font-size:10px;font-weight:700;color:#ffffff">STOCK</span></th>`;
-    html += `<th class="${hospTint}" style="font-size:11px;background:${headerBg};color:#ffffff;font-weight:800;border-top:2px solid ${tone.border}"><span style="font-size:12px;font-weight:900;color:#86efac;letter-spacing:0.5px">B</span> <span style="font-size:10px;font-weight:700;color:#ffffff">3M CONS</span></th>`;
+    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${headerBg};color:#ffffff;font-weight:700;border-top:2px solid ${tone.border};position:relative;padding-top:18px" data-hospidx="${hi}"><span style="position:absolute;top:3px;left:50%;transform:translateX(-50%);font-size:12px;font-weight:900;color:#7dd3fc;line-height:1;letter-spacing:0.6px">A</span><span style="display:block;line-height:1.15">${h.name}</span><span style="display:block;font-size:10px;opacity:1;font-weight:800;color:#ffdd57;line-height:1.1">[${h.type}] STOCK</span></th>`;
+    html += `<th class="${hospTint}" style="font-size:11px;background:${headerBg};color:#ffffff;font-weight:800;border-top:2px solid ${tone.border};position:relative;padding-top:18px"><span style="position:absolute;top:3px;left:50%;transform:translateX(-50%);font-size:12px;font-weight:900;color:#86efac;line-height:1;letter-spacing:0.6px">B</span><span style="display:block;line-height:1.15">3M CONS</span></th>`;
     html += `<th class="hosp-group ${hospTint}" style="font-size:10px;background:${headerBg};color:#ffffff;font-weight:700;border-top:2px solid ${tone.border}">B-A</th>`;
   });
   html += '</tr>';
@@ -1627,8 +1628,8 @@ function buildTable() {
         const baVal = hd.ba;
         const baClass = baVal > 0 ? 'ba-positive' : baVal < 0 ? 'ba-negative' : 'ba-zero';
         const baSign = baVal > 0 ? '+' : '';
-        html += `<td class="${hospTint}"><span class="stock-cell ${stockClass}">${hd.stock.toLocaleString()}</span></td>`;
-        html += `<td class="cons-cell ${hospTint}">${hd.consumption.toLocaleString()}</td>`;
+        html += `<td class="${hospTint}"><span class="stock-cell ${stockClass}">A ${hd.stock.toLocaleString()}</span></td>`;
+        html += `<td class="cons-cell ${hospTint}">B ${hd.consumption.toLocaleString()}</td>`;
         html += `<td class="ba-cell ${baClass} hosp-group ${hospTint}">${baSign}${baVal.toLocaleString()}</td>`;
       }
     });
