@@ -8,32 +8,32 @@
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
   :root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --surface2: #21262d;
-    --border: #30363d;
-    --text: #e6edf3;
-    --text-muted: #7d8590;
-    --accent: #1f6feb;
-    --accent2: #388bfd;
-    --green: #2ea043;
-    --green-bg: #0d1f0d;
-    --orange: #d29922;
-    --orange-bg: #2d1f00;
-    --red: #f85149;
-    --red-bg: #2d0e0e;
-    --phc: #58a6ff;
-    --dhs: #3fb950;
-    --dme: #f78166;
-    --markapuram: #7c3aed;
-    --prakasam: #0891b2;
+    --bg: #f4f7fb;
+    --surface: #ffffff;
+    --surface2: #eef3f8;
+    --border: #d6dee8;
+    --text: #1f2937;
+    --text-muted: #5f6b7a;
+    --accent: #0b5fff;
+    --accent2: #2d7ff9;
+    --green: #147d3f;
+    --green-bg: #e8f5ee;
+    --orange: #a15c00;
+    --orange-bg: #fff4e5;
+    --red: #b42318;
+    --red-bg: #fdecec;
+    --phc: #0b63ce;
+    --dhs: #1f8a46;
+    --dme: #b54708;
+    --markapuram: #6f42c1;
+    --prakasam: #0f766e;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; min-height: 100vh; }
 
   .header {
-    background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+    background: linear-gradient(135deg, #f7f9fc 0%, #eef3f8 50%, #f7f9fc 100%);
     border-bottom: 1px solid var(--border);
     padding: 12px 20px;
     display: flex; align-items: center; justify-content: space-between;
@@ -170,8 +170,8 @@
 
   /* ── Alternating row shading ── */
   tbody tr:nth-child(odd)  td { background: rgba(255,255,255,0.0); }
-  tbody tr:nth-child(even) td { background: rgba(255,255,255,0.035); }
-  tbody tr:hover td { background: rgba(56,139,253,0.08) !important; }
+  tbody tr:nth-child(even) td { background: rgba(15,23,42,0.03); }
+  tbody tr:hover td { background: rgba(45,127,249,0.11) !important; }
 
   /* Left edge severity band */
   tbody tr td:first-child { border-left: 3px solid transparent; }
@@ -180,10 +180,10 @@
   tbody tr.row-ok       td:first-child { border-left: 3px solid rgba(46,160,67,0.5); }
 
   /* Hospital column alternating tint */
-  td.col-hosp-odd  { background: rgba(88,166,255,0.045) !important; }
-  td.col-hosp-even { background: rgba(63,185,80,0.03) !important; }
+  td.col-hosp-odd  { background: rgba(11,99,206,0.06) !important; }
+  td.col-hosp-even { background: rgba(31,138,70,0.05) !important; }
   tbody tr:hover td.col-hosp-odd,
-  tbody tr:hover td.col-hosp-even { background: rgba(56,139,253,0.08) !important; }
+  tbody tr:hover td.col-hosp-even { background: rgba(45,127,249,0.11) !important; }
 
   /* ── User bar ── */
   .user-bar {
