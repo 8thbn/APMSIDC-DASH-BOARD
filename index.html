@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>APMSIDC Medicine Stock Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #7d8590;
+    --accent: #1f6feb;
+    --accent2: #388bfd;
+    --green: #2ea043;
+    --green-bg: #0d1f0d;
+    --orange: #d29922;
+    --orange-bg: #2d1f00;
+    --red: #f85149;
+    --red-bg: #2d0e0e;
+    --phc: #58a6ff;
+    --dhs: #3fb950;
+    --dme: #f78166;
+    --markapuram: #7c3aed;
+    --prakasam: #0891b2;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; min-height: 100vh; }
+
+  .header {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 36px; height: 36px; background: linear-gradient(135deg, #1f6feb, #388bfd); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 14px; color: white; }
+  .header-title { font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+  .header-sub { font-size: 11px; color: var(--text-muted); }
+  .live-badge { display: flex; align-items: center; gap: 6px; background: var(--green-bg); border: 1px solid var(--green); border-radius: 20px; padding: 4px 10px; font-size: 11px; color: var(--green); font-weight: 600; }
+  .live-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.2)} }
+  .last-updated { font-size: 11px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; }
+
+  .controls-bar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .filter-group { display: flex; align-items: center; gap: 6px; }
+  .filter-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .filter-btn {
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+    padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;
+    font-family: 'IBM Plex Sans', sans-serif; transition: all 0.2s;
+  }
+  .filter-btn:hover { border-color: var(--accent2); color: var(--text); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent2); color: white; }
+  .filter-btn.phc-btn.active { background: rgba(88,166,255,0.2); border-color: var(--phc); color: var(--phc); }
+  .filter-btn.dhs-btn.active { background: rgba(63,185,80,0.2); border-color: var(--dhs); color: var(--dhs); }
+  .filter-btn.dme-btn.active { background: rgba(247,129,102,0.2); border-color: var(--dme); color: var(--dme); }
+  .separator { width: 1px; height: 24px; background: var(--border); }
+  .search-box { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; flex: 1; min-width: 200px; max-width: 300px; }
+  .search-box svg { color: var(--text-muted); flex-shrink: 0; }
+  .search-box input { background: none; border: none; outline: none; color: var(--text); font-size: 12px; width: 100%; font-family: 'IBM Plex Sans', sans-serif; }
+  .search-box input::placeholder { color: var(--text-muted); }
+  .action-btn { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: 'IBM Plex Sans', sans-serif; transition: all 0.2s; }
+  .action-btn:hover { border-color: var(--accent2); color: var(--text); }
+  .action-btn.primary { background: var(--accent); border-color: var(--accent2); color: white; }
+  .control-select {
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-width: 140px;
+    outline: none;
+  }
+  .scope-pill {
+    font-size: 11px;
+    color: var(--accent2);
+    border: 1px solid rgba(56,139,253,0.45);
+    background: rgba(56,139,253,0.1);
+    border-radius: 20px;
+    padding: 4px 10px;
+  }
+  .session-pill {
+    font-size: 11px;
+    color: #9fe870;
+    border: 1px solid rgba(159,232,112,0.45);
+    background: rgba(159,232,112,0.1);
+    border-radius: 20px;
+    padding: 4px 10px;
+  }
+
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; padding: 16px 20px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; }
+  .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .stat-value { font-family: 'Rajdhani', sans-serif; font-size: 26px; font-weight: 700; line-height: 1; }
+  .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .stat-red .stat-value { color: var(--red); }
+  .stat-orange .stat-value { color: var(--orange); }
+  .stat-green .stat-value { color: var(--green); }
+  .stat-blue .stat-value { color: var(--accent2); }
+
+  .alerts-bar { padding: 0 20px 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .alert-chip { display: flex; align-items: center; gap: 6px; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600; border: 1px solid; }
+  .alert-chip.critical { background: rgba(248,81,73,0.1); border-color: var(--red); color: var(--red); }
+  .alert-chip.warning { background: rgba(210,153,34,0.1); border-color: var(--orange); color: var(--orange); }
+
+  .transfer-panel { margin: 0 20px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .transfer-header { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .transfer-header-title { font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .transfer-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto; }
+  .transfer-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+  .transfer-medicine { flex: 1; font-weight: 600; }
+  .transfer-arrow { color: var(--accent2); font-size: 16px; }
+  .transfer-from { color: var(--green); display: flex; align-items: center; gap: 4px; }
+  .transfer-to { color: var(--red); display: flex; align-items: center; gap: 4px; }
+  .transfer-qty { font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: rgba(31,111,235,0.1); border: 1px solid rgba(31,111,235,0.3); border-radius: 4px; padding: 2px 6px; color: var(--accent2); }
+  .transfer-empty { text-align: center; color: var(--text-muted); padding: 20px; font-size: 12px; }
+
+  .table-wrapper { margin: 0 20px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .table-header-row { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .table-title { font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; }
+  .table-meta { font-size: 11px; color: var(--text-muted); }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  thead { position: sticky; top: 0; }
+  th { background: var(--surface2); color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); white-space: nowrap; }
+  th.left { text-align: left; }
+  th.district-markapuram { background: rgba(124,58,237,0.1); border-top: 2px solid var(--markapuram); }
+  th.district-prakasam { background: rgba(8,145,178,0.1); border-top: 2px solid var(--prakasam); }
+  th.type-phc { color: var(--phc); }
+  th.type-dhs { color: var(--dhs); }
+  th.type-dme { color: var(--dme); }
+  td { padding: 6px 10px; border-bottom: 1px solid rgba(48,54,61,0.5); border-right: 1px solid rgba(48,54,61,0.3); text-align: center; font-size: 12px; }
+  td.left { text-align: left; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .sno { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-muted); }
+  .code-cell { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-muted); }
+  .med-name { font-weight: 600; color: var(--text); font-size: 12px; }
+  .dosage { font-size: 10px; color: var(--text-muted); }
+  .stock-cell { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; border-radius: 4px; padding: 4px 8px; display: inline-block; min-width: 60px; }
+  .stock-normal { background: transparent; color: var(--text); }
+  .stock-orange { background: var(--orange-bg); color: var(--orange); border: 1px solid rgba(210,153,34,0.3); }
+  .stock-red { background: var(--red-bg); color: var(--red); border: 1px solid rgba(248,81,73,0.3); animation: flash 2s infinite; }
+  @keyframes flash { 0%,100%{opacity:1} 50%{opacity:0.7} }
+  .ba-cell { font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  .ba-positive { color: var(--red); }
+  .ba-negative { color: var(--green); }
+  .ba-zero { color: var(--text-muted); }
+  .cons-cell { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-muted); }
+  .hosp-group { border-right: 2px solid var(--border); }
+  .no-data { color: rgba(125,133,144,0.4); font-size: 10px; }
+
+  /* ── Alternating row shading ── */
+  tbody tr:nth-child(odd)  td { background: rgba(255,255,255,0.0); }
+  tbody tr:nth-child(even) td { background: rgba(255,255,255,0.035); }
+  tbody tr:hover td { background: rgba(56,139,253,0.08) !important; }
+
+  /* Left edge severity band */
+  tbody tr td:first-child { border-left: 3px solid transparent; }
+  tbody tr.row-critical td:first-child { border-left: 3px solid var(--red); }
+  tbody tr.row-warning  td:first-child { border-left: 3px solid var(--orange); }
+  tbody tr.row-ok       td:first-child { border-left: 3px solid rgba(46,160,67,0.5); }
+
+  /* Hospital column alternating tint */
+  td.col-hosp-odd  { background: rgba(88,166,255,0.045) !important; }
+  td.col-hosp-even { background: rgba(63,185,80,0.03) !important; }
+  tbody tr:hover td.col-hosp-odd,
+  tbody tr:hover td.col-hosp-even { background: rgba(56,139,253,0.08) !important; }
+
+  /* ── User bar ── */
+  .user-bar {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 5px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .user-bar-item { display: flex; align-items: center; gap: 6px; color: var(--text-muted); }
+  .user-bar-item strong { color: var(--text); }
+  .user-name-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    width: 160px;
+    outline: none;
+  }
+  .user-name-input:focus { border-color: var(--accent2); }
+  .selected-by-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(56,139,253,0.12);
+    border: 1px solid rgba(56,139,253,0.35);
+    border-radius: 12px;
+    padding: 2px 9px;
+    font-size: 10px;
+    color: var(--accent2);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .selected-by-tag.district-tag { background: rgba(124,58,237,0.12); border-color: rgba(124,58,237,0.4); color: #a78bfa; }
+  .selected-by-tag.hospital-tag { background: rgba(8,145,178,0.12); border-color: rgba(8,145,178,0.4); color: #38bdf8; }
+
+  @media print {
+    body { background: white; color: black; font-size: 10px; }
+    .controls-bar, .stats-row, .alerts-bar, .transfer-panel, .header { display: none; }
+    .table-wrapper { margin: 0; border: none; }
+    table { min-width: auto; font-size: 9px; }
+    th { background: #f0f0f0; color: black; }
+    td { border: 1px solid #ccc; }
+    .stock-orange { background: #fff3cd; color: #856404; }
+    .stock-red { background: #f8d7da; color: #721c24; animation: none; }
+    .print-header { display: block !important; }
+  }
+  .print-header { display: none; margin-bottom: 20px; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: 480px; max-width: 95vw; overflow: hidden; }
+  .modal-header { background: var(--surface2); padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-family: 'Rajdhani', sans-serif; font-size: 16px; font-weight: 700; }
+  .modal-close { cursor: pointer; color: var(--text-muted); font-size: 20px; line-height: 1; }
+  .modal-body { padding: 20px; }
+  .print-option { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
+  .print-option:hover { border-color: var(--accent2); background: rgba(31,111,235,0.05); }
+  .print-option-icon { width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .print-option-info { flex: 1; }
+  .print-option-title { font-weight: 600; font-size: 13px; }
+  .print-option-sub { font-size: 11px; color: var(--text-muted); }
+
+  .login-field { margin-bottom: 12px; }
+  .login-label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .login-input {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 9px 10px;
+    font-size: 13px;
+    outline: none;
+  }
+  .login-input:focus { border-color: var(--accent2); }
+  .login-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .login-note { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+  .login-error { font-size: 11px; color: var(--red); margin-top: 8px; min-height: 14px; }
+
+  .scope-locked {
+    opacity: 0.65;
+    pointer-events: none;
+  }
+
+  .legend { display: flex; align-items: center; gap: 16px; padding: 8px 20px; border-top: 1px solid var(--border); background: var(--surface); font-size: 11px; color: var(--text-muted); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+  .legend-dot.normal { background: var(--surface2); border: 1px solid var(--border); }
+  .legend-dot.orange-dot { background: var(--orange-bg); border: 1px solid var(--orange); }
+  .legend-dot.red-dot { background: var(--red-bg); border: 1px solid var(--red); }
+  .legend-dot.even-row { background: rgba(255,255,255,0.06); border: 1px solid var(--border); }
+  .legend-dot.odd-row  { background: transparent; border: 1px solid var(--border); }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="print-header" id="printHeader">
+  <h2 id="printTitle">APMSIDC Medicine Stock Dashboard</h2>
+  <p id="printSubtitle"></p>
+  <p id="printDate"></p>
+</div>
+
+<div class="modal-overlay" id="loginModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Secure Login</div>
+    </div>
+    <div class="modal-body">
+      <div class="login-field">
+        <label class="login-label" for="loginUser">Username</label>
+        <input id="loginUser" class="login-input" type="text" autocomplete="username" placeholder="Enter username">
+      </div>
+      <div class="login-field">
+        <label class="login-label" for="loginPass">Password</label>
+        <input id="loginPass" class="login-input" type="password" autocomplete="current-password" placeholder="Enter password">
+      </div>
+      <div class="login-actions">
+        <button class="action-btn primary" style="width:100%;justify-content:center" onclick="submitLogin()">Sign In</button>
+      </div>
+      <div class="login-note">Local credentials have been removed. Connect this form to your auth API.</div>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="printModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Print Report</div>
+      <div class="modal-close" onclick="closePrintModal()">x</div>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Select report scope to print</p>
+      <div class="print-option" onclick="doPrint('all','all')">
+        <div class="print-option-icon" style="background:rgba(31,111,235,0.1);color:var(--accent2)">All</div>
+        <div class="print-option-info">
+          <div class="print-option-title">All Hospitals - All Districts</div>
+          <div class="print-option-sub">Complete stock report for all 6 hospitals</div>
+        </div>
+      </div>
+      <div class="print-option" onclick="doPrint('district','MARKAPURAM')">
+        <div class="print-option-icon" style="background:rgba(124,58,237,0.1);color:#7c3aed">M</div>
+        <div class="print-option-info">
+          <div class="print-option-title">MARKAPURAM District</div>
+          <div class="print-option-sub">ANNASAMUDRAM PHC - GIDDALURU DHS - MARKAPURAM DME</div>
+        </div>
+      </div>
+      <div class="print-option" onclick="doPrint('district','PRAKASAM')">
+        <div class="print-option-icon" style="background:rgba(8,145,178,0.1);color:#0891b2">P</div>
+        <div class="print-option-info">
+          <div class="print-option-title">PRAKASAM District</div>
+          <div class="print-option-sub">AMMANABROLU PHC - RIMS ONGOLE DME - CHIMAKURTHY DHS</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">AP</div>
+    <div>
+      <div class="header-title">APMSIDC MEDICINE STOCK DASHBOARD</div>
+      <div class="header-sub">Andhra Pradesh Medical Services and Infrastructure Development Corporation</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="scope-pill" id="scopeLabel">HEAD OFFICE VIEW</div>
+    <div class="session-pill" id="sessionBadge">NOT LOGGED IN</div>
+    <div class="last-updated">Source: <span id="dataSource">LOCAL SAMPLE</span></div>
+    <div class="live-badge"><div class="live-dot"></div>LIVE - eaushadhiap.dcservices.in</div>
+    <div class="last-updated">Updated: <span id="lastUpdated">-</span></div>
+    <button class="action-btn" id="logoutBtn" onclick="logoutUser()">Logout</button>
+  </div>
+</div>
+
+<div class="controls-bar">
+  <div class="filter-group" id="officeScopeGroup">
+    <span class="filter-label">Office Scope</span>
+    <select class="control-select" id="officeModeSelect" title="Office scope mode" onchange="setOfficeMode(this.value)">
+      <option value="head">Head Office (All Districts)</option>
+      <option value="district">District Office</option>
+      <option value="hospital">Hospital Office</option>
+    </select>
+    <select class="control-select" id="officeDistrictSelect" title="Office district selection" onchange="setOfficeDistrict(this.value)">
+      <option value="">Select District</option>
+    </select>
+    <select class="control-select" id="officeHospitalSelect" title="Office hospital selection" onchange="setOfficeHospital(this.value)">
+      <option value="">Select Hospital</option>
+    </select>
+  </div>
+  <div class="separator"></div>
+  <div class="filter-group">
+    <span class="filter-label">District</span>
+    <button class="filter-btn active" onclick="setDistrict('all',this)">All</button>
+    <button class="filter-btn" onclick="setDistrict('MARKAPURAM',this)" style="border-color:rgba(124,58,237,0.4)">Markapuram</button>
+    <button class="filter-btn" onclick="setDistrict('PRAKASAM',this)" style="border-color:rgba(8,145,178,0.4)">Prakasam</button>
+  </div>
+  <div class="separator"></div>
+  <div class="filter-group">
+    <span class="filter-label">Type</span>
+    <button class="filter-btn active" onclick="setType('all',this)">All</button>
+    <button class="filter-btn phc-btn" onclick="setType('PHC',this)">PHC</button>
+    <button class="filter-btn dhs-btn" onclick="setType('DHS',this)">DHS</button>
+    <button class="filter-btn dme-btn" onclick="setType('DME',this)">DME</button>
+  </div>
+  <div class="separator"></div>
+  <div class="filter-group">
+    <span class="filter-label">Stock Alert</span>
+    <button class="filter-btn active" onclick="setAlertFilter('all',this)">All</button>
+    <button class="filter-btn" onclick="setAlertFilter('critical',this)" style="color:var(--red)">Critical</button>
+    <button class="filter-btn" onclick="setAlertFilter('warning',this)" style="color:var(--orange)">Warning</button>
+  </div>
+  <div class="separator"></div>
+  <div class="search-box">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="searchInput" placeholder="Search medicine..." oninput="applyFilters()">
+  </div>
+  <button class="action-btn" onclick="openDataFilePicker()">Load Data File</button>
+  <button class="action-btn primary" onclick="openPrintModal()">Print Report</button>
+  <button class="action-btn" onclick="refreshData()">Refresh</button>
+  <input type="file" id="dataFileInput" accept="application/json,.json,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none" onchange="handleDataFileSelected(event)">
+</div>
+
+<!-- USER BAR -->
+<div class="user-bar" id="userBar">
+  <div class="user-bar-item">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    <span>Viewing as:</span>
+    <input type="text" class="user-name-input" id="userNameInput" placeholder="Enter your name..." oninput="onUserNameChange()" autocomplete="off">
+  </div>
+  <div class="user-bar-item" id="selectedByDistrictRow" style="display:none">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+    <span class="selected-by-tag district-tag" id="selectedByDistrictTag"></span>
+  </div>
+  <div class="user-bar-item" id="selectedByHospitalRow" style="display:none">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span class="selected-by-tag hospital-tag" id="selectedByHospitalTag"></span>
+  </div>
+  <div class="user-bar-item" id="selectedByTypeRow" style="display:none">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    <span class="selected-by-tag" id="selectedByTypeTag"></span>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+    <span style="font-size:10px;color:var(--text-muted)" id="filterTimestamp"></span>
+    <span style="font-size:10px;color:var(--text-muted)" id="sessionInfo"></span>
+  </div>
+</div>
+
+<div class="stats-row" id="statsRow">
+  <div class="stat-card stat-blue"><div class="stat-label">Total Medicines</div><div class="stat-value" id="statTotal">0</div><div class="stat-sub">EML items tracked</div></div>
+  <div class="stat-card stat-blue"><div class="stat-label">Hospitals Shown</div><div class="stat-value" id="statHospitals">6</div><div class="stat-sub">of 6 facilities</div></div>
+  <div class="stat-card stat-red"><div class="stat-label">Critical (Red)</div><div class="stat-value" id="statCritical">0</div><div class="stat-sub">below 1/3 consumption</div></div>
+  <div class="stat-card stat-orange"><div class="stat-label">Warning (Orange)</div><div class="stat-value" id="statWarning">0</div><div class="stat-sub">below 1/2 consumption</div></div>
+  <div class="stat-card stat-green"><div class="stat-label">Adequate Stock</div><div class="stat-value" id="statOk">0</div><div class="stat-sub">sufficient supply</div></div>
+  <div class="stat-card"><div class="stat-label">Transfer Suggestions</div><div class="stat-value" id="statTransfer" style="color:var(--accent2)">0</div><div class="stat-sub">redistribution needed</div></div>
+</div>
+
+<div class="alerts-bar" id="alertsBar"></div>
+
+<div class="transfer-panel">
+  <div class="transfer-header">
+    <div class="transfer-header-title">Smart Transfer Suggestions</div>
+    <span style="font-size:11px;color:var(--text-muted)">Based on stock ratios</span>
+  </div>
+  <div class="transfer-body" id="transferBody">
+    <div class="transfer-empty">Loading transfer analysis...</div>
+  </div>
+</div>
+
+<div class="table-wrapper">
+  <div class="table-header-row">
+    <div class="table-title">Medicine Stock Status</div>
+    <div class="table-meta" id="tableCount"></div>
+  </div>
+  <div class="table-scroll">
+    <table id="mainTable">
+      <thead id="tableHead"></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="legend">
+  <span style="font-weight:600;color:var(--text)">Legend:</span>
+  <div class="legend-item"><div class="legend-dot red-dot"></div>Critical</div>
+  <div class="legend-item"><div class="legend-dot orange-dot"></div>Warning</div>
+  <div class="legend-item"><div class="legend-dot normal"></div>Normal</div>
+  <div class="legend-item"><div class="legend-dot even-row"></div>Even row shade</div>
+  <div class="legend-item"><div class="legend-dot odd-row"></div>Odd row</div>
+  <span style="color:var(--text-muted);font-size:10px">Left border = row severity &nbsp;|&nbsp; Column tint alternates per hospital group &nbsp;|&nbsp; B-A = Consumption minus Stock</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// RAW_DATA is loaded from data.json at startup. This empty array is the fallback.
+const RAW_DATA = [];
+
+// ── Session state ──
+let currentUser = '';
+let authUser = null;
+const LOCAL_AUTH_USERS = [];
+
+function openLoginModal() {
+  const modal = document.getElementById('loginModal');
+  modal.classList.add('open');
+  document.getElementById('loginError').textContent = '';
+  setTimeout(() => document.getElementById('loginUser').focus(), 0);
+}
+
+function closeLoginModal() {
+  document.getElementById('loginModal').classList.remove('open');
+}
+
+function applyRolePolicy() {
+  const scopeGroup = document.getElementById('officeScopeGroup');
+  const districtButtons = document.querySelectorAll('.controls-bar .filter-group:nth-of-type(2) .filter-btn');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  if (!authUser) {
+    scopeGroup.classList.remove('scope-locked');
+    districtButtons.forEach((b) => b.classList.remove('scope-locked'));
+    document.getElementById('sessionBadge').textContent = 'GUEST MODE';
+    document.getElementById('sessionInfo').textContent = 'Credentials removed from client';
+    logoutBtn.textContent = 'Login';
+    return;
+  }
+
+  document.getElementById('sessionBadge').textContent = authUser.role.toUpperCase() + ' SESSION';
+  document.getElementById('sessionInfo').textContent = authUser.name + ' (' + authUser.username + ')';
+  logoutBtn.textContent = 'Logout';
+
+  if (authUser.role === 'head') {
+    scopeGroup.classList.remove('scope-locked');
+    districtButtons.forEach((b) => b.classList.remove('scope-locked'));
+    return;
+  }
+
+  // District/Hospital sessions are hard-locked
+  scopeGroup.classList.add('scope-locked');
+  districtButtons.forEach((b) => b.classList.add('scope-locked'));
+  districtButtons.forEach((b) => {
+    if (b.textContent.trim().toUpperCase() === (authUser.district || '')) {
+      b.classList.remove('scope-locked');
+    }
+  });
+}
+
+function enforceAuthScope() {
+  if (!authUser) return;
+
+  if (authUser.role === 'head') {
+    officeScope.mode = 'head';
+    officeScope.district = '';
+    officeScope.hospital = '';
+    currentDistrict = 'all';
+    return;
+  }
+
+  if (authUser.role === 'district') {
+    officeScope.mode = 'district';
+    officeScope.district = authUser.district || '';
+    officeScope.hospital = '';
+    currentDistrict = authUser.district || 'all';
+    return;
+  }
+
+  if (authUser.role === 'hospital') {
+    officeScope.mode = 'hospital';
+    officeScope.district = authUser.district || '';
+    officeScope.hospital = authUser.hospital || '';
+    currentDistrict = authUser.district || 'all';
+    return;
+  }
+}
+
+function submitLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  if (!LOCAL_AUTH_USERS.length) {
+    document.getElementById('loginError').textContent = 'No local credentials configured. Connect authentication API.';
+    return;
+  }
+  const matched = LOCAL_AUTH_USERS.find((u) => u.username === username && u.password === password);
+
+  if (!matched) {
+    document.getElementById('loginError').textContent = 'Invalid username or password.';
+    return;
+  }
+
+  authUser = { ...matched };
+  currentUser = matched.name;
+  localStorage.setItem('apmsidc_auth_user', JSON.stringify(authUser));
+  localStorage.setItem('apmsidc_user', currentUser);
+
+  enforceAuthScope();
+  populateScopeSelectors();
+  document.getElementById('officeModeSelect').value = officeScope.mode;
+  document.getElementById('userNameInput').value = currentUser;
+  updateScopeLabel();
+  updateSelectedByBar();
+  applyRolePolicy();
+  applyFilters();
+  closeLoginModal();
+}
+
+function logoutUser() {
+  authUser = null;
+  currentUser = '';
+  localStorage.removeItem('apmsidc_auth_user');
+  localStorage.removeItem('apmsidc_user');
+  document.getElementById('userNameInput').value = '';
+  applyRolePolicy();
+  openLoginModal();
+}
+
+function onUserNameChange() {
+  const input = document.getElementById('userNameInput');
+  currentUser = input.value.trim();
+  localStorage.setItem('apmsidc_user', currentUser);
+  updateSelectedByBar();
+  updateScopeLabel();
+}
+
+function updateSelectedByBar() {
+  const user = currentUser || 'Unknown User';
+  const ts = new Date().toLocaleTimeString('en-IN', {hour12:true});
+
+  // District tag
+  const dRow = document.getElementById('selectedByDistrictRow');
+  const dTag  = document.getElementById('selectedByDistrictTag');
+  if (currentDistrict !== 'all') {
+    dTag.textContent = '\u25C6 ' + currentDistrict + ' — selected by ' + user;
+    dRow.style.display = 'flex';
+  } else {
+    dRow.style.display = 'none';
+  }
+
+  // Hospital tag
+  const hRow = document.getElementById('selectedByHospitalRow');
+  const hTag  = document.getElementById('selectedByHospitalTag');
+  if (officeScope.mode === 'hospital' && officeScope.hospital) {
+    hTag.textContent = '\u25A3 ' + officeScope.hospital + ' — selected by ' + user;
+    hRow.style.display = 'flex';
+  } else {
+    hRow.style.display = 'none';
+  }
+
+  // Type tag
+  const tRow = document.getElementById('selectedByTypeRow');
+  const tTag  = document.getElementById('selectedByTypeTag');
+  if (currentType !== 'all') {
+    tTag.textContent = currentType + ' — selected by ' + user;
+    tRow.style.display = 'flex';
+  } else {
+    tRow.style.display = 'none';
+  }
+
+  const ftEl = document.getElementById('filterTimestamp');
+  if (ftEl) ftEl.textContent = 'Filters last changed: ' + ts;
+}
+
+const SEED_HOSPITALS = [
+  {name:'ANNASAMUDRAM', type:'PHC', district:'MARKAPURAM'},
+  {name:'GIDDALURU', type:'DHS', district:'MARKAPURAM'},
+  {name:'MARKAPURAM', type:'DME', district:'MARKAPURAM'},
+  {name:'AMMANABROLU', type:'PHC', district:'PRAKASAM'},
+  {name:'RIMS ONGOLE', type:'DME', district:'PRAKASAM'},
+  {name:'CHIMAKURTHY', type:'DHS', district:'PRAKASAM'}
+];
+
+let currentDistrict = 'all';
+let currentType = 'all';
+let currentAlert = 'all';
+let liveData = JSON.parse(JSON.stringify(RAW_DATA));
+let masterHospitals = JSON.parse(JSON.stringify(SEED_HOSPITALS));
+
+const APP_CONFIG = {
+  apiUrl: '',
+  refreshMs: 60000
+};
+
+const officeScope = {
+  mode: 'head',
+  district: '',
+  hospital: ''
+};
+
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function normalizeHospitalEntry(entry) {
+  const stock = toNumber(entry.stock);
+  const consumption = toNumber(entry.consumption);
+  const ba = entry.ba === undefined || entry.ba === null ? (consumption - stock) : toNumber(entry.ba);
+  return {
+    hospital: String(entry.hospital || '').trim(),
+    type: String(entry.type || 'NA').trim().toUpperCase(),
+    district: String(entry.district || 'UNKNOWN').trim().toUpperCase(),
+    stock,
+    consumption,
+    ba
+  };
+}
+
+function normalizeMedicineData(payload) {
+  const input = Array.isArray(payload) ? payload : Array.isArray(payload && payload.data) ? payload.data : [];
+  if (input.length === 0) return [];
+
+  if (Array.isArray(input[0] && input[0].hospitals)) {
+    return input.map((row, idx) => {
+      const hospitals = Array.isArray(row.hospitals) ? row.hospitals.map(normalizeHospitalEntry).filter(h => h.hospital) : [];
+      return {
+        sno: row.sno || (idx + 1),
+        code: String(row.code || ''),
+        medicine: String(row.medicine || ''),
+        dosage: String(row.dosage || '-'),
+        hospitals
+      };
+    });
+  }
+
+  const grouped = new Map();
+  input.forEach((row) => {
+    const code = String(row.code || row.item_code || '');
+    const medicine = String(row.medicine || row.item_name || row.medicine_name || 'UNKNOWN MEDICINE');
+    const dosage = String(row.dosage || row.strength || '-');
+    const key = code + '|' + medicine + '|' + dosage;
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        code,
+        medicine,
+        dosage,
+        hospitals: []
+      });
+    }
+
+    grouped.get(key).hospitals.push(normalizeHospitalEntry({
+      hospital: row.hospital || row.hospital_name,
+      type: row.type || row.hospital_type,
+      district: row.district || row.district_name,
+      stock: row.stock,
+      consumption: row.consumption,
+      ba: row.ba
+    }));
+  });
+
+  return Array.from(grouped.values()).map((row, idx) => ({
+    sno: idx + 1,
+    code: row.code,
+    medicine: row.medicine,
+    dosage: row.dosage,
+    hospitals: row.hospitals.filter(h => h.hospital)
+  }));
+}
+
+function dedupeByMedicineName(rows) {
+  const byMedicine = new Map();
+  rows.forEach((row) => {
+    const key = String(row.medicine || '').trim().toUpperCase();
+    if (!key) return;
+    byMedicine.set(key, row);
+  });
+  const out = Array.from(byMedicine.values());
+  out.sort((a, b) => toNumber(a.sno) - toNumber(b.sno));
+  out.forEach((row, idx) => { row.sno = idx + 1; });
+  return out;
+}
+
+function parseHospitalCell(raw) {
+  const text = String(raw || '').replace(/\r/g, '').trim();
+  if (!text) return { hospital: 'UNKNOWN', type: 'NA' };
+
+  const typeMatch = text.match(/\(([^)]+)\)\s*$/);
+  const type = typeMatch ? typeMatch[1].trim().toUpperCase() : 'NA';
+  const hospital = text
+    .replace(/\(([^)]+)\)\s*$/, '')
+    .replace(/\n+/g, ' ')
+    .replace(/\s*-\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  return { hospital: hospital || 'UNKNOWN', type };
+}
+
+function normalizeDistrictName(name) {
+  return String(name || '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*DISTRICT\s*/i, '')
+    .trim()
+    .toUpperCase();
+}
+
+function convertExcelArrayToMedicineData(grid) {
+  const districtRow = grid[1] || [];
+  const hospitalRow = grid[2] || [];
+
+  let currentDistrict = '';
+  const hospitalDefs = [];
+
+  for (let col = 4; col < hospitalRow.length; col += 3) {
+    const districtCell = normalizeDistrictName(districtRow[col]);
+    if (districtCell) currentDistrict = districtCell;
+
+    const parsedHospital = parseHospitalCell(hospitalRow[col]);
+    hospitalDefs.push({
+      col,
+      district: currentDistrict || 'UNKNOWN',
+      hospital: parsedHospital.hospital,
+      type: parsedHospital.type
+    });
+  }
+
+  const records = [];
+
+  for (let r = 4; r < grid.length; r++) {
+    const row = grid[r] || [];
+    const medicine = String(row[2] || '').trim();
+    const sno = toNumber(row[0]);
+    if (!medicine || !sno) continue;
+
+    const rec = {
+      sno,
+      code: String(row[1] || '').trim(),
+      medicine,
+      dosage: String(row[3] || '-').trim() || '-',
+      hospitals: []
+    };
+
+    hospitalDefs.forEach((h) => {
+      const stock = toNumber(row[h.col]);
+      const consumption = toNumber(row[h.col + 1]);
+      const ba = toNumber(row[h.col + 2]);
+      rec.hospitals.push({
+        hospital: h.hospital,
+        type: h.type,
+        district: h.district,
+        stock,
+        consumption,
+        ba
+      });
+    });
+
+    records.push(rec);
+  }
+
+  return dedupeByMedicineName(records);
+}
+
+function rebuildMasterHospitals() {
+  const map = new Map();
+  SEED_HOSPITALS.forEach(h => map.set(h.name, { ...h }));
+  liveData.forEach(med => {
+    med.hospitals.forEach(h => {
+      if (!h.hospital) return;
+      map.set(h.hospital, {
+        name: h.hospital,
+        type: h.type || 'NA',
+        district: h.district || 'UNKNOWN'
+      });
+    });
+  });
+  masterHospitals = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function updateScopeLabel() {
+  let label = 'HEAD OFFICE VIEW';
+  if (officeScope.mode === 'district') {
+    label = 'DISTRICT OFFICE: ' + (officeScope.district || 'SELECT DISTRICT');
+  }
+  if (officeScope.mode === 'hospital') {
+    label = 'HOSPITAL OFFICE: ' + (officeScope.hospital || 'SELECT HOSPITAL');
+  }
+  document.getElementById('scopeLabel').textContent = label;
+}
+
+function updateDataSourceLabel(text) {
+  document.getElementById('dataSource').textContent = text;
+}
+
+function populateScopeSelectors() {
+  const districtSelect = document.getElementById('officeDistrictSelect');
+  const hospitalSelect = document.getElementById('officeHospitalSelect');
+
+  const districts = Array.from(new Set(masterHospitals.map(h => h.district))).sort();
+  districtSelect.innerHTML = '<option value="">Select District</option>' + districts.map(d => `<option value="${d}">${d}</option>`).join('');
+
+  const mode = officeScope.mode;
+  const scopedHospitals = masterHospitals
+    .filter(h => mode !== 'district' || !officeScope.district || h.district === officeScope.district)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  hospitalSelect.innerHTML = '<option value="">Select Hospital</option>' + scopedHospitals.map(h => `<option value="${h.name}">${h.name} (${h.district})</option>`).join('');
+
+  districtSelect.value = officeScope.district;
+  hospitalSelect.value = officeScope.hospital;
+  districtSelect.disabled = mode === 'head';
+  hospitalSelect.disabled = mode === 'head';
+}
+
+function setOfficeMode(mode) {
+  if (authUser && authUser.role !== 'head') return;
+  officeScope.mode = mode;
+  if (mode === 'head') {
+    officeScope.district = '';
+    officeScope.hospital = '';
+  }
+  if (mode === 'district') {
+    officeScope.hospital = '';
+  }
+  populateScopeSelectors();
+  updateScopeLabel();
+  applyFilters();
+}
+
+function setOfficeDistrict(district) {
+  if (authUser && authUser.role !== 'head') return;
+  officeScope.district = district;
+  if (officeScope.mode === 'district') {
+    officeScope.hospital = '';
+  }
+  populateScopeSelectors();
+  updateScopeLabel();
+  updateSelectedByBar();
+  applyFilters();
+}
+
+function setOfficeHospital(hospital) {
+  if (authUser && authUser.role !== 'head') return;
+  officeScope.hospital = hospital;
+  if (hospital && officeScope.mode !== 'hospital') {
+    officeScope.mode = 'hospital';
+    document.getElementById('officeModeSelect').value = 'hospital';
+  }
+  if (hospital) {
+    const match = masterHospitals.find(h => h.name === hospital);
+    if (match) {
+      officeScope.district = match.district;
+    }
+  }
+  populateScopeSelectors();
+  updateScopeLabel();
+  updateSelectedByBar();
+  applyFilters();
+}
+
+function getScopeHospitals() {
+  let scoped = masterHospitals.slice();
+  if (officeScope.mode === 'district') {
+    if (officeScope.district) scoped = scoped.filter(h => h.district === officeScope.district);
+  } else if (officeScope.mode === 'hospital') {
+    if (officeScope.hospital) scoped = scoped.filter(h => h.name === officeScope.hospital);
+  }
+  return scoped;
+}
+
+function parseStartupConfig() {
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get('mode');
+  const district = params.get('district');
+  const hospital = params.get('hospital');
+  const api = params.get('api');
+  const refresh = params.get('refresh');
+
+  if (mode === 'head' || mode === 'district' || mode === 'hospital') {
+    officeScope.mode = mode;
+  }
+  if (district) officeScope.district = district.toUpperCase();
+  if (hospital) officeScope.hospital = hospital;
+  if (api) APP_CONFIG.apiUrl = api;
+
+  const refreshSeconds = Number(refresh);
+  if (Number.isFinite(refreshSeconds) && refreshSeconds >= 10) {
+    APP_CONFIG.refreshMs = refreshSeconds * 1000;
+  }
+}
+
+async function refreshFromLiveApi() {
+  if (!APP_CONFIG.apiUrl) {
+    return false;
+  }
+
+  const response = await fetch(APP_CONFIG.apiUrl, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' }
+  });
+
+  if (!response.ok) {
+    throw new Error('API request failed with status ' + response.status);
+  }
+
+  const payload = await response.json();
+  const normalized = normalizeMedicineData(payload);
+  if (!normalized.length) {
+    throw new Error('API did not return usable medicine data');
+  }
+
+  liveData = normalized;
+  rebuildMasterHospitals();
+  populateScopeSelectors();
+  updateDataSourceLabel('LIVE API');
+  return true;
+}
+
+function getStockStatus(stock, consumption) {
+  if (consumption <= 0) return 'normal';
+  if (stock < consumption / 3) return 'critical';
+  if (stock < consumption / 2) return 'warning';
+  return 'normal';
+}
+
+function getVisibleHospitals() {
+  return getScopeHospitals().filter(h => {
+    if (currentDistrict !== 'all' && h.district !== currentDistrict) return false;
+    if (currentType !== 'all' && h.type !== currentType) return false;
+    return true;
+  });
+}
+
+function getHospitalSeverityScore(hospitalName) {
+  let critical = 0;
+  let warning = 0;
+
+  liveData.forEach(med => {
+    const hd = med.hospitals.find(x => x.hospital === hospitalName);
+    if (!hd || (hd.stock === 0 && hd.consumption === 0)) return;
+    const status = getStockStatus(hd.stock, hd.consumption);
+    if (status === 'critical') critical++;
+    else if (status === 'warning') warning++;
+  });
+
+  return { critical, warning };
+}
+
+function sortHospitalsBySeverity(hospitals) {
+  return hospitals.slice().sort((a, b) => {
+    const sa = getHospitalSeverityScore(a.name);
+    const sb = getHospitalSeverityScore(b.name);
+
+    if (sb.critical !== sa.critical) return sb.critical - sa.critical;
+    if (sb.warning !== sa.warning) return sb.warning - sa.warning;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function getMedicineSeverityScore(med, visibleHospitals) {
+  let critical = 0;
+  let warning = 0;
+  let totalDeficit = 0;
+
+  visibleHospitals.forEach(h => {
+    const hd = med.hospitals.find(x => x.hospital === h.name);
+    if (!hd || (hd.stock === 0 && hd.consumption === 0)) return;
+
+    const status = getStockStatus(hd.stock, hd.consumption);
+    if (status === 'critical') critical++;
+    else if (status === 'warning') warning++;
+
+    if (hd.ba > 0) totalDeficit += hd.ba;
+  });
+
+  return { critical, warning, totalDeficit };
+}
+
+function sortMedicinesBySeverity(rows, visibleHospitals) {
+  return rows.slice().sort((a, b) => {
+    const sa = getMedicineSeverityScore(a, visibleHospitals);
+    const sb = getMedicineSeverityScore(b, visibleHospitals);
+
+    if (sb.critical !== sa.critical) return sb.critical - sa.critical;
+    if (sb.warning !== sa.warning) return sb.warning - sa.warning;
+    if (sb.totalDeficit !== sa.totalDeficit) return sb.totalDeficit - sa.totalDeficit;
+    return a.sno - b.sno;
+  });
+}
+
+function buildTableHeader() {
+  const visible = sortHospitalsBySeverity(getVisibleHospitals());
+  const districtGroups = {};
+  visible.forEach(h => {
+    if (!districtGroups[h.district]) districtGroups[h.district] = [];
+    districtGroups[h.district].push(h);
+  });
+
+  let html = '<tr>';
+  html += '<th class="left" rowspan="2">S.No</th>';
+  html += '<th class="left" rowspan="2">Code</th>';
+  html += '<th class="left" rowspan="2" style="min-width:180px">Medicine</th>';
+  html += '<th class="left" rowspan="2">Dosage</th>';
+
+  // District header spans with alternating district background emphasis
+  let distIdx = 0;
+  Object.entries(districtGroups).forEach(([dist, hosps]) => {
+    const cls = dist === 'MARKAPURAM' ? 'district-markapuram' : 'district-prakasam';
+    const distEmphasis = distIdx % 2 === 0 ? '' : 'filter:brightness(1.15)';
+    html += `<th colspan="${hosps.length * 3}" class="${cls}" style="font-family:Rajdhani,sans-serif;font-size:12px;letter-spacing:1px;${distEmphasis}">${dist} DISTRICT</th>`;
+    distIdx++;
+  });
+  html += '</tr><tr>';
+
+  visible.forEach((h, hi) => {
+    const typeClass = `type-${h.type.toLowerCase()}`;
+    const distClass = h.district === 'MARKAPURAM' ? 'district-markapuram' : 'district-prakasam';
+    const hospTint  = hi % 2 === 0 ? 'col-hosp-odd' : 'col-hosp-even';
+    html += `<th class="${distClass} ${typeClass} ${hospTint}" style="min-width:75px" data-hospidx="${hi}">${h.name}<br><span style="font-size:9px;opacity:0.7">[${h.type}] Stock</span></th>`;
+    html += `<th class="${distClass} ${hospTint}" style="font-size:10px">3M Cons</th>`;
+    html += `<th class="${distClass} hosp-group ${hospTint}" style="font-size:10px">B-A</th>`;
+  });
+  html += '</tr>';
+  document.getElementById('tableHead').innerHTML = html;
+}
+
+function buildTable() {
+  const visible = sortHospitalsBySeverity(getVisibleHospitals());
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  let rows = liveData;
+
+  if (search) rows = rows.filter(m => m.medicine.toLowerCase().includes(search) || m.code.includes(search));
+
+  if (currentAlert !== 'all') {
+    rows = rows.filter(m => {
+      return m.hospitals.some(hd => {
+        if (!visible.find(v => v.name === hd.hospital)) return false;
+        const st = getStockStatus(hd.stock, hd.consumption);
+        if (currentAlert === 'critical') return st === 'critical';
+        if (currentAlert === 'warning') return st === 'warning';
+        return false;
+      });
+    });
+  }
+
+  rows = sortMedicinesBySeverity(rows, visible);
+
+  document.getElementById('tableCount').textContent = `Showing ${rows.length} of ${liveData.length} medicines`;
+
+  let html = '';
+  rows.forEach(med => {
+    // Determine worst severity across visible hospitals for this medicine
+    let worstStatus = 'ok';
+    visible.forEach(h => {
+      const hd = med.hospitals.find(x => x.hospital === h.name);
+      if (!hd || (hd.stock === 0 && hd.consumption === 0)) return;
+      const st = getStockStatus(hd.stock, hd.consumption);
+      if (st === 'critical') worstStatus = 'critical';
+      else if (st === 'warning' && worstStatus !== 'critical') worstStatus = 'warning';
+    });
+
+    html += `<tr class="row-${worstStatus}">`;
+    html += `<td class="sno left">${med.sno}</td>`;
+    html += `<td class="code-cell left">${med.code}</td>`;
+    html += `<td class="left"><div class="med-name">${med.medicine}</div></td>`;
+    html += `<td class="left dosage">${med.dosage || '-'}</td>`;
+
+    visible.forEach((h, hi) => {
+      const hospTint = hi % 2 === 0 ? 'col-hosp-odd' : 'col-hosp-even';
+      const hd = med.hospitals.find(x => x.hospital === h.name);
+      if (!hd || (hd.stock === 0 && hd.consumption === 0)) {
+        html += `<td class="no-data ${hospTint}">-</td><td class="no-data ${hospTint}">-</td><td class="no-data hosp-group ${hospTint}">-</td>`;
+      } else {
+        const status = getStockStatus(hd.stock, hd.consumption);
+        const stockClass = status === 'critical' ? 'stock-red' : status === 'warning' ? 'stock-orange' : 'stock-normal';
+        const baVal = hd.ba;
+        const baClass = baVal > 0 ? 'ba-positive' : baVal < 0 ? 'ba-negative' : 'ba-zero';
+        const baSign = baVal > 0 ? '+' : '';
+        html += `<td class="${hospTint}"><span class="stock-cell ${stockClass}">${hd.stock.toLocaleString()}</span></td>`;
+        html += `<td class="cons-cell ${hospTint}">${hd.consumption.toLocaleString()}</td>`;
+        html += `<td class="ba-cell ${baClass} hosp-group ${hospTint}">${baSign}${baVal.toLocaleString()}</td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  document.getElementById('tableBody').innerHTML = html;
+}
+
+function buildStats() {
+  const visible = getVisibleHospitals();
+  let critical = 0, warning = 0, ok = 0;
+  liveData.forEach(med => {
+    med.hospitals.forEach(hd => {
+      if (!visible.find(v => v.name === hd.hospital)) return;
+      if (hd.stock === 0 && hd.consumption === 0) return;
+      const st = getStockStatus(hd.stock, hd.consumption);
+      if (st === 'critical') critical++;
+      else if (st === 'warning') warning++;
+      else ok++;
+    });
+  });
+  document.getElementById('statTotal').textContent = liveData.length;
+  document.getElementById('statHospitals').textContent = visible.length;
+  document.getElementById('statCritical').textContent = critical;
+  document.getElementById('statWarning').textContent = warning;
+  document.getElementById('statOk').textContent = ok;
+
+  const alerts = [];
+  liveData.forEach(med => {
+    med.hospitals.forEach(hd => {
+      if (!visible.find(v => v.name === hd.hospital)) return;
+      const st = getStockStatus(hd.stock, hd.consumption);
+      if (st === 'critical') alerts.push({type:'critical', text:`${hd.hospital}: ${med.medicine} - CRITICAL`});
+      else if (st === 'warning') alerts.push({type:'warning', text:`${hd.hospital}: ${med.medicine} - Low Stock`});
+    });
+  });
+  const alertHtml = alerts.slice(0, 8).map(a =>
+    `<div class="alert-chip ${a.type}">${a.type === 'critical' ? 'Critical' : 'Warning'} ${a.text}</div>`
+  ).join('');
+  document.getElementById('alertsBar').innerHTML = alertHtml || '';
+}
+
+function buildTransfers() {
+  const suggestions = [];
+  liveData.forEach(med => {
+    const surplus = med.hospitals.filter(hd => hd.consumption > 0 && hd.stock > hd.consumption * 1.5)
+      .sort((a,b) => (b.stock - b.consumption) - (a.stock - a.consumption));
+    const deficit = med.hospitals.filter(hd => {
+      const st = getStockStatus(hd.stock, hd.consumption);
+      return st === 'critical' || (st === 'warning' && hd.consumption > 0);
+    }).sort((a,b) => a.stock/Math.max(a.consumption,1) - b.stock/Math.max(b.consumption,1));
+
+    if (surplus.length > 0 && deficit.length > 0) {
+      const s = surplus[0], d = deficit[0];
+      const transferAmt = Math.floor((s.stock - s.consumption) / 2);
+      if (transferAmt > 0) {
+        suggestions.push({
+          medicine: med.medicine,
+          from: s.hospital,
+          fromType: s.type,
+          to: d.hospital,
+          toType: d.type,
+          qty: transferAmt,
+          urgency: getStockStatus(d.stock, d.consumption)
+        });
+      }
+    }
+  });
+
+  document.getElementById('statTransfer').textContent = suggestions.length;
+
+  if (suggestions.length === 0) {
+    document.getElementById('transferBody').innerHTML = '<div class="transfer-empty">No transfer needed - stock distribution is balanced</div>';
+    return;
+  }
+
+  suggestions.sort((a,b) => (a.urgency === 'critical' ? -1 : 1));
+  const html = suggestions.slice(0,15).map(s => {
+    const urgencyBadge = s.urgency === 'critical' ? '<span style="color:var(--red);font-size:10px">URGENT</span>' : '<span style="color:var(--orange);font-size:10px">LOW</span>';
+    return `<div class="transfer-row">
+      <div class="transfer-medicine">${s.medicine} ${urgencyBadge}</div>
+      <div class="transfer-from">FROM ${s.from} <span style="color:var(--text-muted);font-size:10px">[${s.fromType}]</span></div>
+      <div class="transfer-arrow">-></div>
+      <div class="transfer-to">TO ${s.to} <span style="color:var(--text-muted);font-size:10px">[${s.toType}]</span></div>
+      <div class="transfer-qty">Transfer: ${s.qty.toLocaleString()} units</div>
+    </div>`;
+  }).join('');
+  document.getElementById('transferBody').innerHTML = html;
+}
+
+function setDistrict(d, btn) {
+  if (authUser && authUser.role !== 'head') return;
+  currentDistrict = d;
+  document.querySelectorAll('.controls-bar .filter-group:nth-of-type(2) .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateSelectedByBar();
+  applyFilters();
+}
+
+function setType(t, btn) {
+  currentType = t;
+  document.querySelectorAll('.controls-bar .filter-group:nth-of-type(3) .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateSelectedByBar();
+  applyFilters();
+}
+
+function setAlertFilter(a, btn) {
+  currentAlert = a;
+  document.querySelectorAll('.controls-bar .filter-group:nth-of-type(4) .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateSelectedByBar();
+  applyFilters();
+}
+
+function applyFilters() {
+  buildTableHeader();
+  buildTable();
+  buildStats();
+  buildTransfers();
+}
+
+function openPrintModal() { document.getElementById('printModal').classList.add('open'); }
+function closePrintModal() { document.getElementById('printModal').classList.remove('open'); }
+
+function doPrint(scope, value) {
+  closePrintModal();
+  const origDistrict = currentDistrict;
+  const origType = currentType;
+
+  if (scope === 'district') { currentDistrict = value; currentType = 'all'; }
+  else if (scope === 'type') { currentType = value; currentDistrict = 'all'; }
+  else { currentDistrict = 'all'; currentType = 'all'; }
+
+  buildTableHeader();
+  buildTable();
+
+  const ph = document.getElementById('printHeader');
+  ph.style.display = 'block';
+  document.getElementById('printTitle').textContent = 'APMSIDC - Medicine Stock Dashboard';
+  document.getElementById('printSubtitle').textContent =
+    scope === 'all' ? 'All Hospitals - All Districts' :
+    scope === 'district' ? `District: ${value}` :
+    `Hospital Type: ${value}`;
+  document.getElementById('printDate').textContent = 'Generated: ' + new Date().toLocaleString('en-IN');
+
+  setTimeout(() => {
+    window.print();
+    ph.style.display = 'none';
+    currentDistrict = origDistrict;
+    currentType = origType;
+    applyFilters();
+  }, 100);
+}
+
+function simulateRefresh() {
+  liveData = JSON.parse(JSON.stringify(RAW_DATA));
+  liveData.forEach(med => {
+    med.hospitals.forEach(hd => {
+      if (hd.stock > 0) {
+        const change = Math.floor((Math.random() - 0.4) * hd.stock * 0.08);
+        hd.stock = Math.max(0, hd.stock + change);
+        hd.ba = hd.consumption - hd.stock;
+      }
+    });
+  });
+  rebuildMasterHospitals();
+  populateScopeSelectors();
+  updateDataSourceLabel('LOCAL SAMPLE');
+  updateTimestamp();
+  applyFilters();
+}
+
+async function refreshData() {
+  try {
+    const ok = await refreshFromLiveApi();
+    if (!ok) {
+      simulateRefresh();
+      return;
+    }
+    updateTimestamp();
+    applyFilters();
+  } catch (error) {
+    console.error(error);
+    simulateRefresh();
+  }
+}
+
+function openDataFilePicker() {
+  const input = document.getElementById('dataFileInput');
+  input.value = '';
+  input.click();
+}
+
+function handleDataFileSelected(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const name = (file.name || '').toLowerCase();
+  const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls');
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      let normalized = [];
+
+      if (isExcel) {
+        if (typeof XLSX === 'undefined') {
+          alert('Excel parser is unavailable. Please reload page and try again.');
+          return;
+        }
+        const workbook = XLSX.read(reader.result, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const grid = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+        normalized = convertExcelArrayToMedicineData(grid);
+      } else {
+        const payload = JSON.parse(String(reader.result || '[]'));
+        normalized = normalizeMedicineData(payload);
+        normalized = dedupeByMedicineName(normalized);
+      }
+
+      if (!normalized.length) {
+        alert('Selected file does not contain usable medicine rows.');
+        return;
+      }
+
+      liveData = normalized;
+      rebuildMasterHospitals();
+      populateScopeSelectors();
+      updateDataSourceLabel('LOCAL FILE: ' + file.name + ' (' + normalized.length + ' medicines)');
+      updateTimestamp();
+      applyFilters();
+    } catch (error) {
+      console.error(error);
+      alert('Unable to parse selected file. Please provide valid JSON or Excel data.');
+    }
+  };
+
+  if (isExcel) {
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.readAsText(file);
+  }
+}
+
+function updateTimestamp() {
+  document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('en-IN', {hour12: true});
+}
+
+parseStartupConfig();
+document.getElementById('officeModeSelect').value = officeScope.mode;
+
+async function loadDataJson() {
+  try {
+    const res = await fetch('data.json');
+    if (!res.ok) throw new Error('data.json not found');
+    const payload = await res.json();
+    const normalized = normalizeMedicineData(payload);
+    if (normalized.length) {
+      liveData = normalized;
+      updateDataSourceLabel('data.json (' + normalized.length + ' medicines)');
+    }
+  } catch (e) {
+    console.warn('data.json load skipped:', e.message);
+    updateDataSourceLabel('NO DATA — load a file');
+  }
+  rebuildMasterHospitals();
+  populateScopeSelectors();
+  updateScopeLabel();
+  updateTimestamp();
+  applyFilters();
+}
+
+loadDataJson();
+// Restore auth session if present
+const savedAuth = localStorage.getItem('apmsidc_auth_user');
+if (savedAuth) {
+  try {
+    authUser = JSON.parse(savedAuth);
+    currentUser = authUser.name || '';
+  } catch (e) {
+    authUser = null;
+  }
+}
+
+if (currentUser) {
+  document.getElementById('userNameInput').value = currentUser;
+}
+
+enforceAuthScope();
+populateScopeSelectors();
+document.getElementById('officeModeSelect').value = officeScope.mode;
+updateScopeLabel();
+updateSelectedByBar();
+applyRolePolicy();
+
+setInterval(refreshData, APP_CONFIG.refreshMs);
+</script>
+</body>
+</html>
