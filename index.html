@@ -133,7 +133,11 @@
   .table-header-row { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
   .table-title { font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; }
   .table-meta { font-size: 11px; color: var(--text-muted); }
-  .table-scroll { overflow-x: auto; }
+  .table-scroll {
+    overflow: auto;
+    max-height: 68vh;
+    border-top: 1px solid var(--border);
+  }
   table { width: 100%; border-collapse: collapse; min-width: 900px; }
   thead { position: sticky; top: 0; }
   th { background: var(--surface2); color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); white-space: nowrap; }
@@ -794,6 +798,10 @@ let currentType = 'all';
 let currentAlert = 'all';
 let liveData = JSON.parse(JSON.stringify(RAW_DATA));
 let masterHospitals = JSON.parse(JSON.stringify(SEED_HOSPITALS));
+
+let autoScrollTimer = null;
+let autoScrollPaused = false;
+let autoScrollPauseUntil = 0;
 
 const APP_CONFIG = {
   apiUrl: '',
@@ -1514,6 +1522,56 @@ function applyFilters() {
   buildTable();
   buildStats();
   buildTransfers();
+  updateAutoScrollState();
+}
+
+function setupAutoScroll() {
+  const container = document.querySelector('.table-scroll');
+  if (!container) return;
+
+  container.addEventListener('mouseenter', () => {
+    autoScrollPaused = true;
+  });
+
+  container.addEventListener('mouseleave', () => {
+    autoScrollPaused = false;
+  });
+
+  container.addEventListener('wheel', () => {
+    autoScrollPauseUntil = Date.now() + 2500;
+  }, { passive: true });
+
+  startAutoScrollLoop();
+}
+
+function startAutoScrollLoop() {
+  if (autoScrollTimer) return;
+  autoScrollTimer = setInterval(() => {
+    const container = document.querySelector('.table-scroll');
+    if (!container) return;
+    if (autoScrollPaused) return;
+    if (Date.now() < autoScrollPauseUntil) return;
+
+    const maxScroll = container.scrollHeight - container.clientHeight;
+    if (maxScroll <= 0) return;
+
+    const next = container.scrollTop + 1;
+    if (next >= maxScroll) {
+      container.scrollTop = 0;
+      autoScrollPauseUntil = Date.now() + 900;
+    } else {
+      container.scrollTop = next;
+    }
+  }, 70);
+}
+
+function updateAutoScrollState() {
+  const container = document.querySelector('.table-scroll');
+  if (!container) return;
+  const maxScroll = container.scrollHeight - container.clientHeight;
+  if (maxScroll <= 0) {
+    container.scrollTop = 0;
+  }
 }
 
 function openPrintModal() { document.getElementById('printModal').classList.add('open'); }
@@ -1699,6 +1757,7 @@ document.getElementById('officeModeSelect').value = officeScope.mode;
 updateScopeLabel();
 updateSelectedByBar();
 applyRolePolicy();
+setupAutoScroll();
 
 setInterval(refreshData, APP_CONFIG.refreshMs);
 </script>
