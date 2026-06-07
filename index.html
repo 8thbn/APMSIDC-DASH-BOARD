@@ -231,8 +231,76 @@
     .stock-orange { background: #fff3cd; color: #856404; }
     .stock-red { background: #f8d7da; color: #721c24; animation: none; }
     .print-header { display: block !important; }
+    body.printing-custom > * { display: none !important; }
+    body.printing-custom #printPagesContainer { display: block !important; }
   }
   .print-header { display: none; margin-bottom: 20px; }
+  .print-pages-container { display: none; }
+
+  @page portraitPage {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  @page landscapePage {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  .print-page.portrait { page: portraitPage; }
+  .print-page.landscape { page: landscapePage; }
+  .print-page {
+    background: white;
+    color: #111;
+    break-after: page;
+    page-break-after: always;
+  }
+  .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+  .print-page-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #cfd6de;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+  }
+  .print-page-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .print-page-meta { font-size: 10px; color: #444; }
+  .print-page-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #1f6feb;
+    border: 1px solid #9cbef5;
+    border-radius: 10px;
+    padding: 2px 8px;
+  }
+  .print-grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9px;
+  }
+  .print-grid th,
+  .print-grid td {
+    border: 1px solid #cfd6de;
+    padding: 3px 4px;
+    text-align: center;
+  }
+  .print-grid th.left,
+  .print-grid td.left { text-align: left; }
+  .print-grid th {
+    background: #f3f6fb;
+    font-size: 8.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+  }
 
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
@@ -297,6 +365,7 @@
   <p id="printSubtitle"></p>
   <p id="printDate"></p>
 </div>
+<div id="printPagesContainer" class="print-pages-container"></div>
 
 <div class="modal-overlay" id="loginModal">
   <div class="modal" style="max-width:420px">
@@ -1075,6 +1144,122 @@ function sortMedicinesBySeverity(rows, visibleHospitals) {
   });
 }
 
+function getFilteredRowsForDisplay(visibleHospitals) {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  let rows = liveData;
+
+  if (search) rows = rows.filter(m => m.medicine.toLowerCase().includes(search) || m.code.includes(search));
+
+  if (currentAlert !== 'all') {
+    rows = rows.filter(m => {
+      return m.hospitals.some(hd => {
+        if (!visibleHospitals.find(v => v.name === hd.hospital)) return false;
+        const st = getStockStatus(hd.stock, hd.consumption);
+        if (currentAlert === 'critical') return st === 'critical';
+        if (currentAlert === 'warning') return st === 'warning';
+        return false;
+      });
+    });
+  }
+
+  return sortMedicinesBySeverity(rows, visibleHospitals);
+}
+
+function chunkArray(input, size) {
+  const out = [];
+  for (let i = 0; i < input.length; i += size) out.push(input.slice(i, i + size));
+  return out;
+}
+
+function pageCode(verticalIndex, horizontalIndex, useLetters) {
+  if (!useLetters) return String(verticalIndex + 1);
+  return String(verticalIndex + 1) + String.fromCharCode(65 + horizontalIndex);
+}
+
+function buildPrintPages(scope, value) {
+  const visible = sortHospitalsBySeverity(getVisibleHospitals());
+  const rows = getFilteredRowsForDisplay(visible);
+
+  if (!rows.length || !visible.length) {
+    return { ok: false, reason: 'No data to print for selected scope.' };
+  }
+
+  const useLandscape = visible.length > 1;
+  const hospitalsPerPage = useLandscape ? 4 : 1;
+  const rowsPerPage = useLandscape ? 22 : 28;
+  const horizontalChunks = chunkArray(visible, hospitalsPerPage);
+  const verticalChunks = chunkArray(rows, rowsPerPage);
+  const showLetters = horizontalChunks.length > 1;
+
+  const scopeText =
+    scope === 'all' ? 'All Hospitals - All Districts' :
+    scope === 'district' ? ('District: ' + value) :
+    ('Hospital Type: ' + value);
+
+  let html = '';
+
+  verticalChunks.forEach((rowChunk, vIdx) => {
+    horizontalChunks.forEach((hospitalChunk, hIdx) => {
+      const label = pageCode(vIdx, hIdx, showLetters);
+      const pageClass = useLandscape ? 'landscape' : 'portrait';
+
+      let pageHtml = `<section class="print-page ${pageClass}">`;
+      pageHtml += `<div class="print-page-header">`;
+      pageHtml += `<div><div class="print-page-title">APMSIDC Medicine Stock Dashboard</div><div class="print-page-meta">${scopeText} | Generated: ${new Date().toLocaleString('en-IN')}</div></div>`;
+      pageHtml += `<div class="print-page-label">Page ${label}</div>`;
+      pageHtml += `</div>`;
+
+      pageHtml += `<table class="print-grid">`;
+      pageHtml += `<thead><tr>`;
+      pageHtml += `<th class="left" rowspan="2">S.No</th>`;
+      pageHtml += `<th class="left" rowspan="2">Code</th>`;
+      pageHtml += `<th class="left" rowspan="2">Medicine</th>`;
+      pageHtml += `<th class="left" rowspan="2">Dosage</th>`;
+      hospitalChunk.forEach((h) => {
+        pageHtml += `<th colspan="3">${h.name} (${h.type}) - ${h.district}</th>`;
+      });
+      pageHtml += `</tr><tr>`;
+      hospitalChunk.forEach(() => {
+        pageHtml += `<th>Stock (A)</th><th>3M Cons (B)</th><th>B-A</th>`;
+      });
+      pageHtml += `</tr></thead><tbody>`;
+
+      rowChunk.forEach((med) => {
+        pageHtml += `<tr>`;
+        pageHtml += `<td class="left">${med.sno}</td>`;
+        pageHtml += `<td class="left">${med.code}</td>`;
+        pageHtml += `<td class="left">${med.medicine}</td>`;
+        pageHtml += `<td class="left">${med.dosage || '-'}</td>`;
+
+        hospitalChunk.forEach((h) => {
+          const hd = med.hospitals.find(x => x.hospital === h.name);
+          if (!hd || (hd.stock === 0 && hd.consumption === 0)) {
+            pageHtml += `<td>-</td><td>-</td><td>-</td>`;
+          } else {
+            const baVal = hd.ba;
+            const baSign = baVal > 0 ? '+' : '';
+            pageHtml += `<td>${hd.stock.toLocaleString()}</td>`;
+            pageHtml += `<td>${hd.consumption.toLocaleString()}</td>`;
+            pageHtml += `<td>${baSign}${baVal.toLocaleString()}</td>`;
+          }
+        });
+
+        pageHtml += `</tr>`;
+      });
+
+      pageHtml += `</tbody></table></section>`;
+      html += pageHtml;
+    });
+  });
+
+  document.getElementById('printPagesContainer').innerHTML = html;
+
+  return {
+    ok: true,
+    orientation: useLandscape ? 'landscape' : 'portrait'
+  };
+}
+
 function buildTableHeader() {
   const visible = sortHospitalsBySeverity(getVisibleHospitals());
   const districtGroups = {};
@@ -1113,24 +1298,7 @@ function buildTableHeader() {
 
 function buildTable() {
   const visible = sortHospitalsBySeverity(getVisibleHospitals());
-  const search = document.getElementById('searchInput').value.toLowerCase();
-  let rows = liveData;
-
-  if (search) rows = rows.filter(m => m.medicine.toLowerCase().includes(search) || m.code.includes(search));
-
-  if (currentAlert !== 'all') {
-    rows = rows.filter(m => {
-      return m.hospitals.some(hd => {
-        if (!visible.find(v => v.name === hd.hospital)) return false;
-        const st = getStockStatus(hd.stock, hd.consumption);
-        if (currentAlert === 'critical') return st === 'critical';
-        if (currentAlert === 'warning') return st === 'warning';
-        return false;
-      });
-    });
-  }
-
-  rows = sortMedicinesBySeverity(rows, visible);
+  const rows = getFilteredRowsForDisplay(visible);
 
   document.getElementById('tableCount').textContent = `Showing ${rows.length} of ${liveData.length} medicines`;
 
@@ -1299,25 +1467,35 @@ function doPrint(scope, value) {
   else if (scope === 'type') { currentType = value; currentDistrict = 'all'; }
   else { currentDistrict = 'all'; currentType = 'all'; }
 
-  buildTableHeader();
-  buildTable();
-
-  const ph = document.getElementById('printHeader');
-  ph.style.display = 'block';
-  document.getElementById('printTitle').textContent = 'APMSIDC - Medicine Stock Dashboard';
-  document.getElementById('printSubtitle').textContent =
-    scope === 'all' ? 'All Hospitals - All Districts' :
-    scope === 'district' ? `District: ${value}` :
-    `Hospital Type: ${value}`;
-  document.getElementById('printDate').textContent = 'Generated: ' + new Date().toLocaleString('en-IN');
-
-  setTimeout(() => {
-    window.print();
-    ph.style.display = 'none';
+  const printMeta = buildPrintPages(scope, value);
+  if (!printMeta.ok) {
+    alert(printMeta.reason || 'No printable data found.');
     currentDistrict = origDistrict;
     currentType = origType;
     applyFilters();
-  }, 100);
+    return;
+  }
+
+  document.body.classList.add('printing-custom');
+  document.body.classList.remove('print-landscape', 'print-portrait');
+  document.body.classList.add(printMeta.orientation === 'landscape' ? 'print-landscape' : 'print-portrait');
+
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    document.body.classList.remove('printing-custom', 'print-landscape', 'print-portrait');
+    document.getElementById('printPagesContainer').innerHTML = '';
+    currentDistrict = origDistrict;
+    currentType = origType;
+    applyFilters();
+  };
+
+  window.addEventListener('afterprint', cleanup, { once: true });
+  setTimeout(() => {
+    window.print();
+    setTimeout(cleanup, 1200);
+  }, 80);
 }
 
 function simulateRefresh() {
