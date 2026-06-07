@@ -121,6 +121,7 @@
   .transfer-panel { margin: 0 20px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   .transfer-header { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
   .transfer-header-title { font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .transfer-basis-text { font-size: 11px; color: var(--text-muted); }
   .transfer-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto; }
   .transfer-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
   .transfer-medicine { flex: 1; font-weight: 600; }
@@ -142,13 +143,13 @@
   }
   table { width: 100%; border-collapse: collapse; min-width: 900px; }
   thead { position: sticky; top: 0; z-index: 30; }
-  th { background: var(--surface2); color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); white-space: nowrap; position: relative; z-index: 31; }
+  th { background: #1d2a3b; color: #f5f8ff; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 10px; text-align: center; border-bottom: 1px solid #2e425a; border-right: 1px solid #2e425a; white-space: nowrap; position: relative; z-index: 31; }
   th.left { text-align: left; }
   th.district-markapuram { background: #251f35; border-top: 2px solid var(--markapuram); }
   th.district-prakasam { background: #1a3038; border-top: 2px solid var(--prakasam); }
-  th.type-phc { color: var(--phc); }
-  th.type-dhs { color: var(--dhs); }
-  th.type-dme { color: var(--dme); }
+  th.type-phc { color: #f5f8ff; }
+  th.type-dhs { color: #f5f8ff; }
+  th.type-dme { color: #f5f8ff; }
   td { padding: 6px 10px; border-bottom: 1px solid rgba(48,54,61,0.5); border-right: 1px solid rgba(48,54,61,0.3); text-align: center; font-size: 12px; }
   td.left { text-align: left; }
   tr:hover td { background: rgba(255,255,255,0.02); }
@@ -585,7 +586,7 @@
 <div class="transfer-panel">
   <div class="transfer-header">
     <div class="transfer-header-title">Smart Transfer Suggestions</div>
-    <span style="font-size:11px;color:var(--text-muted)">Based on stock ratios</span>
+    <span id="transferBasisText" class="transfer-basis-text">District-first and proximity-based routing</span>
   </div>
   <div class="transfer-body" id="transferBody">
     <div class="transfer-empty">Loading transfer analysis...</div>
@@ -802,11 +803,52 @@ let masterHospitals = JSON.parse(JSON.stringify(SEED_HOSPITALS));
 let autoScrollTimer = null;
 let autoScrollPaused = false;
 let autoScrollPauseUntil = 0;
+let autoScrollLastTs = 0;
+const AUTO_SCROLL_PX_PER_SEC = 16;
 
 const APP_CONFIG = {
   apiUrl: '',
   refreshMs: 60000
 };
+
+const DISTRICT_NEIGHBOR_MAP = {
+  MARKAPURAM: ['PRAKASAM', 'PALANADU', 'NELLORE'],
+  PRAKASAM: ['MARKAPURAM', 'BAPATLA', 'GUNTUR', 'NELLORE'],
+  SRIKAKULAM: ['VISAKHAPATNAM'],
+  VISAKHAPATNAM: ['SRIKAKULAM', 'EAST GODAVARI'],
+  'EAST GODAVARI': ['VISAKHAPATNAM', 'WEST GODAVARI', 'KRISHNA'],
+  'WEST GODAVARI': ['EAST GODAVARI', 'KRISHNA'],
+  KRISHNA: ['WEST GODAVARI', 'EAST GODAVARI', 'GUNTUR', 'BAPATLA'],
+  NELLORE: ['PRAKASAM', 'MARKAPURAM', 'BAPATLA'],
+  BAPATLA: ['PRAKASAM', 'GUNTUR', 'KRISHNA', 'NELLORE'],
+  GUNTUR: ['BAPATLA', 'KRISHNA', 'PALANADU', 'PRAKASAM'],
+  PALANADU: ['GUNTUR', 'MARKAPURAM', 'PRAKASAM']
+};
+
+const DISTRICT_CENTROIDS = {
+  MARKAPURAM: { lat: 15.73, lon: 79.27 },
+  PRAKASAM: { lat: 15.50, lon: 80.05 },
+  SRIKAKULAM: { lat: 18.29, lon: 83.90 },
+  VISAKHAPATNAM: { lat: 17.69, lon: 83.22 },
+  'EAST GODAVARI': { lat: 16.98, lon: 82.24 },
+  'WEST GODAVARI': { lat: 16.71, lon: 81.10 },
+  KRISHNA: { lat: 16.52, lon: 80.64 },
+  NELLORE: { lat: 14.44, lon: 79.99 },
+  BAPATLA: { lat: 15.90, lon: 80.47 },
+  GUNTUR: { lat: 16.31, lon: 80.44 },
+  PALANADU: { lat: 16.23, lon: 79.90 }
+};
+
+const AI_PROXIMITY = {
+  extractor: null,
+  loadingPromise: null,
+  failed: false,
+  vectorCache: new Map(),
+  pairDistanceCache: new Map(),
+  activeForHospitals: new Set()
+};
+
+let transferBuildToken = 0;
 
 const officeScope = {
   mode: 'head',
@@ -1140,6 +1182,149 @@ function getStockStatus(stock, consumption) {
   return 'normal';
 }
 
+function getDistrictTransferTier(fromDistrict, toDistrict) {
+  if (fromDistrict === toDistrict) {
+    return { rank: 0, label: 'INTRA-DISTRICT' };
+  }
+
+  const neighbors = DISTRICT_NEIGHBOR_MAP[toDistrict] || [];
+  if (neighbors.includes(fromDistrict)) {
+    return { rank: 1, label: 'NEIGHBOUR DISTRICT' };
+  }
+
+  return { rank: 2, label: 'OUT-DISTRICT' };
+}
+
+function getHospitalCoordinates(hospital) {
+  return DISTRICT_CENTROIDS[hospital.district] || null;
+}
+
+function toRadians(value) {
+  return value * (Math.PI / 180);
+}
+
+function haversineKm(a, b) {
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(b.lat - a.lat);
+  const dLon = toRadians(b.lon - a.lon);
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+
+  const h =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function getGeoDistanceKm(fromHospital, toHospital) {
+  const a = getHospitalCoordinates(fromHospital);
+  const b = getHospitalCoordinates(toHospital);
+  if (!a || !b) return null;
+  return haversineKm(a, b);
+}
+
+function getPairKey(nameA, nameB) {
+  return [nameA, nameB].sort((x, y) => x.localeCompare(y)).join('||');
+}
+
+function hospitalProfileText(hospital) {
+  return [
+    hospital.name,
+    hospital.type,
+    'hospital',
+    hospital.district,
+    'district',
+    'Andhra Pradesh',
+    'India'
+  ].join(' ');
+}
+
+function cosineSimilarity(vecA, vecB) {
+  let dot = 0;
+  let aNorm = 0;
+  let bNorm = 0;
+
+  for (let i = 0; i < vecA.length; i++) {
+    dot += vecA[i] * vecB[i];
+    aNorm += vecA[i] * vecA[i];
+    bNorm += vecB[i] * vecB[i];
+  }
+
+  const denom = Math.sqrt(aNorm) * Math.sqrt(bNorm);
+  if (!denom) return 0;
+  return dot / denom;
+}
+
+async function ensureAiProximityModel() {
+  if (AI_PROXIMITY.failed) return false;
+  if (AI_PROXIMITY.extractor) return true;
+  if (AI_PROXIMITY.loadingPromise) return AI_PROXIMITY.loadingPromise;
+
+  AI_PROXIMITY.loadingPromise = (async () => {
+    try {
+      const mod = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+      AI_PROXIMITY.extractor = await mod.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+      return true;
+    } catch (error) {
+      AI_PROXIMITY.failed = true;
+      console.warn('AI proximity model unavailable, using geo fallback:', error);
+      return false;
+    } finally {
+      AI_PROXIMITY.loadingPromise = null;
+    }
+  })();
+
+  return AI_PROXIMITY.loadingPromise;
+}
+
+async function ensureHospitalVector(hospital) {
+  if (AI_PROXIMITY.vectorCache.has(hospital.name)) {
+    return AI_PROXIMITY.vectorCache.get(hospital.name);
+  }
+
+  const extractor = AI_PROXIMITY.extractor;
+  const output = await extractor(hospitalProfileText(hospital), {
+    pooling: 'mean',
+    normalize: true
+  });
+  const vector = Array.from(output.data || []);
+  AI_PROXIMITY.vectorCache.set(hospital.name, vector);
+  return vector;
+}
+
+async function ensureAiDistanceCache(visibleHospitals) {
+  const ready = await ensureAiProximityModel();
+  if (!ready || !AI_PROXIMITY.extractor) return false;
+
+  const list = visibleHospitals.slice();
+  for (const hospital of list) {
+    await ensureHospitalVector(hospital);
+  }
+
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      const key = getPairKey(list[i].name, list[j].name);
+      if (AI_PROXIMITY.pairDistanceCache.has(key)) continue;
+
+      const a = AI_PROXIMITY.vectorCache.get(list[i].name);
+      const b = AI_PROXIMITY.vectorCache.get(list[j].name);
+      const sim = cosineSimilarity(a, b);
+      const distanceScore = Math.max(0, 1 - sim);
+      AI_PROXIMITY.pairDistanceCache.set(key, distanceScore);
+    }
+  }
+
+  list.forEach((h) => AI_PROXIMITY.activeForHospitals.add(h.name));
+  return true;
+}
+
+function getAiDistanceScore(fromHospital, toHospital) {
+  const key = getPairKey(fromHospital.name, toHospital.name);
+  if (!AI_PROXIMITY.pairDistanceCache.has(key)) return null;
+  return AI_PROXIMITY.pairDistanceCache.get(key);
+}
+
 function getVisibleHospitals() {
   return getScopeHospitals().filter(h => {
     if (currentDistrict !== 'all' && h.district !== currentDistrict) return false;
@@ -1323,7 +1508,7 @@ function buildPrintPages(scope, value) {
       });
       pageHtml += `</tr><tr>`;
       hospitalChunk.forEach(() => {
-        pageHtml += `<th>Stock (A)</th><th>3M Cons (B)</th><th>B-A</th>`;
+        pageHtml += `<th><strong>A</strong> — Stock</th><th><strong>B</strong> — 3M Cons</th><th>B-A</th>`;
       });
       pageHtml += `</tr></thead><tbody>`;
 
@@ -1388,7 +1573,7 @@ function buildTableHeader() {
     const distEmphasis = distIdx % 2 === 0 ? '' : 'filter:brightness(1.08)';
     for (let i = 0; i < hosps.length; i += 4) {
       const chunkSize = Math.min(4, hosps.length - i);
-      html += `<th colspan="${chunkSize * 3}" style="font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;background:${tone.bg};border-top:3px solid ${tone.border};color:${tone.text};text-shadow:0 1px 0 rgba(255,255,255,0.45);${distEmphasis}">${dist} DISTRICT</th>`;
+      html += `<th colspan="${chunkSize * 3}" style="font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;background:#1a2332;border-top:3px solid ${tone.border};color:#ffffff;text-shadow:0 0 8px ${tone.border},0 0 3px ${tone.border};${distEmphasis}">${dist} DISTRICT</th>`;
     }
     distIdx++;
   });
@@ -1398,9 +1583,10 @@ function buildTableHeader() {
     const typeClass = `type-${h.type.toLowerCase()}`;
     const tone = districtPalette.get(h.district) || DISTRICT_COLOR_BANDS[0];
     const hospTint  = hi % 2 === 0 ? 'col-hosp-odd' : 'col-hosp-even';
-    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${tone.cellBg};color:${tone.text};font-weight:700" data-hospidx="${hi}">${h.name}<br><span style="font-size:9px;opacity:0.95;font-weight:600">[${h.type}] Stock</span></th>`;
-    html += `<th class="${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text};font-weight:700">3M Cons</th>`;
-    html += `<th class="hosp-group ${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text};font-weight:700">B-A</th>`;
+    const headerBg = hi % 2 === 0 ? '#1e2a3a' : '#223146';
+    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${headerBg};color:#ffffff;font-weight:700;border-top:2px solid ${tone.border}" data-hospidx="${hi}">${h.name}<br><span style="font-size:10px;opacity:1;font-weight:800;color:#ffdd57">[${h.type}]</span><br><span style="font-size:11px;font-weight:900;color:#7dd3fc;letter-spacing:0.5px">A</span> <span style="font-size:10px;font-weight:700;color:#ffffff">STOCK</span></th>`;
+    html += `<th class="${hospTint}" style="font-size:11px;background:${headerBg};color:#ffffff;font-weight:800;border-top:2px solid ${tone.border}"><span style="font-size:12px;font-weight:900;color:#86efac;letter-spacing:0.5px">B</span> <span style="font-size:10px;font-weight:700;color:#ffffff">3M CONS</span></th>`;
+    html += `<th class="hosp-group ${hospTint}" style="font-size:10px;background:${headerBg};color:#ffffff;font-weight:700;border-top:2px solid ${tone.border}">B-A</th>`;
   });
   html += '</tr>';
   document.getElementById('tableHead').innerHTML = html;
@@ -1485,52 +1671,214 @@ function buildStats() {
   document.getElementById('alertsBar').innerHTML = alertHtml || '';
 }
 
-function buildTransfers() {
-  const suggestions = [];
-  liveData.forEach(med => {
-    const surplus = med.hospitals.filter(hd => hd.consumption > 0 && hd.stock > hd.consumption * 1.5)
-      .sort((a,b) => (b.stock - b.consumption) - (a.stock - a.consumption));
-    const deficit = med.hospitals.filter(hd => {
-      const st = getStockStatus(hd.stock, hd.consumption);
-      return st === 'critical' || (st === 'warning' && hd.consumption > 0);
-    }).sort((a,b) => a.stock/Math.max(a.consumption,1) - b.stock/Math.max(b.consumption,1));
-
-    if (surplus.length > 0 && deficit.length > 0) {
-      const s = surplus[0], d = deficit[0];
-      const transferAmt = Math.floor((s.stock - s.consumption) / 2);
-      if (transferAmt > 0) {
-        suggestions.push({
-          medicine: med.medicine,
-          from: s.hospital,
-          fromType: s.type,
-          to: d.hospital,
-          toType: d.type,
-          qty: transferAmt,
-          urgency: getStockStatus(d.stock, d.consumption)
-        });
-      }
-    }
-  });
-
+function renderTransferSuggestions(suggestions, aiEnabled, unmetNeeds = []) {
   document.getElementById('statTransfer').textContent = suggestions.length;
 
-  if (suggestions.length === 0) {
+  const basis = document.getElementById('transferBasisText');
+  if (aiEnabled) {
+    basis.textContent = 'District-first + neighbour-district fallback + open-source AI proximity';
+  } else if (AI_PROXIMITY.failed) {
+    basis.textContent = 'District-first + neighbour-district fallback + geographic proximity (AI unavailable)';
+  } else {
+    basis.textContent = 'District-first + neighbour-district fallback + geographic proximity (AI loading...)';
+  }
+
+  if (suggestions.length === 0 && unmetNeeds.length === 0) {
     document.getElementById('transferBody').innerHTML = '<div class="transfer-empty">No transfer needed - stock distribution is balanced</div>';
     return;
   }
 
-  suggestions.sort((a,b) => (a.urgency === 'critical' ? -1 : 1));
-  const html = suggestions.slice(0,15).map(s => {
-    const urgencyBadge = s.urgency === 'critical' ? '<span style="color:var(--red);font-size:10px">URGENT</span>' : '<span style="color:var(--orange);font-size:10px">LOW</span>';
+  suggestions.sort((a, b) => {
+    if (a.urgency !== b.urgency) return a.urgency === 'critical' ? -1 : 1;
+    if (a.tierRank !== b.tierRank) return a.tierRank - b.tierRank;
+    return a.distanceScore - b.distanceScore;
+  });
+
+  const transferHtml = suggestions.slice(0, 15).map(s => {
+    const urgencyBadge = s.urgency === 'critical'
+      ? '<span style="color:var(--red);font-size:10px">URGENT</span>'
+      : '<span style="color:var(--orange);font-size:10px">LOW</span>';
+
+    const distanceInfo = s.geoKm !== null
+      ? `${Math.round(s.geoKm)} km` + (s.aiScore !== null ? ` | AI ${s.aiScore.toFixed(3)}` : '')
+      : (s.aiScore !== null ? `AI ${s.aiScore.toFixed(3)}` : 'Distance N/A');
+
+    const safetyInfo = `(donor post-stock ${Math.round(s.donorPostStock).toLocaleString()} >= safe ${Math.round(s.donorSafeFloor).toLocaleString()})`;
+
     return `<div class="transfer-row">
-      <div class="transfer-medicine">${s.medicine} ${urgencyBadge}</div>
+      <div class="transfer-medicine">${s.medicine} ${urgencyBadge}<br><span style="font-size:10px;color:var(--text-muted)">${s.scopeLabel} | ${distanceInfo} | ${safetyInfo}</span></div>
       <div class="transfer-from">FROM ${s.from} <span style="color:var(--text-muted);font-size:10px">[${s.fromType}]</span></div>
       <div class="transfer-arrow">-></div>
       <div class="transfer-to">TO ${s.to} <span style="color:var(--text-muted);font-size:10px">[${s.toType}]</span></div>
       <div class="transfer-qty">Transfer: ${s.qty.toLocaleString()} units</div>
     </div>`;
   }).join('');
-  document.getElementById('transferBody').innerHTML = html;
+
+  const unmetHtml = unmetNeeds.slice(0, 8).map(u => {
+    const urgencyBadge = u.urgency === 'critical'
+      ? '<span style="color:var(--red);font-size:10px">CRITICAL</span>'
+      : '<span style="color:var(--orange);font-size:10px">WARNING</span>';
+
+    return `<div class="transfer-row" style="border-color:rgba(248,81,73,0.45)">
+      <div class="transfer-medicine">${u.medicine} ${urgencyBadge}<br><span style="font-size:10px;color:var(--text-muted)">No safe donor capacity available for full demand</span></div>
+      <div class="transfer-to">TO ${u.to} <span style="color:var(--text-muted);font-size:10px">[${u.toType}]</span></div>
+      <div class="transfer-qty" style="border-color:rgba(248,81,73,0.35);color:var(--red)">Pending: ${u.pendingQty.toLocaleString()} units</div>
+    </div>`;
+  }).join('');
+
+  const summaryHtml = unmetNeeds.length
+    ? `<div class="transfer-empty" style="padding:10px 8px;color:var(--orange)">Unfulfilled safe transfers: ${unmetNeeds.length} case(s)</div>`
+    : '';
+
+  document.getElementById('transferBody').innerHTML = transferHtml + summaryHtml + unmetHtml;
+}
+
+function generateTransferSuggestions(visibleHospitals, useAiProximity) {
+  const visibleMap = new Map(visibleHospitals.map(h => [h.name, h]));
+  const visibleNames = new Set(visibleHospitals.map(h => h.name));
+  const suggestions = [];
+  const unmetNeeds = [];
+
+  liveData.forEach(med => {
+    const donors = med.hospitals
+      .filter(hd => visibleNames.has(hd.hospital))
+      .map(hd => {
+        // Keep donor above warning zone after transfer.
+        const safeMinStock = hd.consumption > 0 ? Math.ceil(hd.consumption / 2) : 0;
+        const maxTransferable = Math.max(0, Math.floor(hd.stock - safeMinStock));
+        return { ...hd, safeMinStock, maxTransferable };
+      })
+      .filter(hd => hd.maxTransferable > 0);
+
+    const receivers = med.hospitals
+      .filter(hd => visibleNames.has(hd.hospital))
+      .map(hd => {
+        const need = Math.max(0, Math.ceil(hd.consumption - hd.stock));
+        const status = getStockStatus(hd.stock, hd.consumption);
+        return { ...hd, need, status };
+      })
+      .filter(hd => hd.need > 0 && (hd.status === 'critical' || hd.status === 'warning'))
+      .sort((a, b) => {
+        if (a.status !== b.status) return a.status === 'critical' ? -1 : 1;
+        return b.need - a.need;
+      });
+
+    if (!receivers.length) return;
+
+    if (!donors.length) {
+      receivers.forEach((receiver) => {
+        unmetNeeds.push({
+          medicine: med.medicine,
+          to: receiver.hospital,
+          toType: receiver.type,
+          pendingQty: receiver.need,
+          urgency: receiver.status
+        });
+      });
+      return;
+    }
+
+    receivers.forEach((receiver) => {
+      let remaining = receiver.need;
+
+      while (remaining > 0) {
+        const rankedDonors = donors
+          .filter(donor => donor.maxTransferable > 0 && donor.hospital !== receiver.hospital)
+          .map((donor) => {
+            const fromHospital = visibleMap.get(donor.hospital);
+            const toHospital = visibleMap.get(receiver.hospital);
+            const tier = getDistrictTransferTier(donor.district, receiver.district);
+            const geoKm = fromHospital && toHospital ? getGeoDistanceKm(fromHospital, toHospital) : null;
+            const aiScore = (useAiProximity && fromHospital && toHospital) ? getAiDistanceScore(fromHospital, toHospital) : null;
+            const geoRank = geoKm === null ? Number.MAX_SAFE_INTEGER : geoKm;
+            const aiRank = aiScore === null ? Number.MAX_SAFE_INTEGER : aiScore;
+
+            return {
+              donor,
+              tier,
+              geoKm,
+              aiScore,
+              geoRank,
+              aiRank,
+              distanceScore: (geoKm === null ? 999999 : geoKm) + (aiScore === null ? 0 : aiScore * 10)
+            };
+          })
+          .sort((a, b) => {
+            if (a.tier.rank !== b.tier.rank) return a.tier.rank - b.tier.rank;
+            if (a.geoRank !== b.geoRank) return a.geoRank - b.geoRank;
+            if (a.aiRank !== b.aiRank) return a.aiRank - b.aiRank;
+            if (a.donor.maxTransferable !== b.donor.maxTransferable) return b.donor.maxTransferable - a.donor.maxTransferable;
+            return a.donor.hospital.localeCompare(b.donor.hospital);
+          });
+
+        if (!rankedDonors.length) break;
+
+        const best = rankedDonors[0];
+        const transferQty = Math.min(remaining, best.donor.maxTransferable);
+        if (transferQty <= 0) break;
+
+        const donorPostStock = best.donor.stock - transferQty;
+        const donorPostStatus = getStockStatus(donorPostStock, best.donor.consumption);
+        if (donorPostStatus !== 'normal') {
+          best.donor.maxTransferable = 0;
+          continue;
+        }
+
+        suggestions.push({
+          medicine: med.medicine,
+          from: best.donor.hospital,
+          fromType: best.donor.type,
+          to: receiver.hospital,
+          toType: receiver.type,
+          qty: transferQty,
+          urgency: receiver.status,
+          scopeLabel: best.tier.label,
+          tierRank: best.tier.rank,
+          geoKm: best.geoKm,
+          aiScore: best.aiScore,
+          distanceScore: best.distanceScore,
+          donorSafeFloor: best.donor.safeMinStock,
+          donorPostStock
+        });
+
+        best.donor.maxTransferable -= transferQty;
+        best.donor.stock -= transferQty;
+        remaining -= transferQty;
+      }
+
+      if (remaining > 0) {
+        unmetNeeds.push({
+          medicine: med.medicine,
+          to: receiver.hospital,
+          toType: receiver.type,
+          pendingQty: remaining,
+          urgency: receiver.status
+        });
+      }
+    });
+  });
+
+  unmetNeeds.sort((a, b) => {
+    if (a.urgency !== b.urgency) return a.urgency === 'critical' ? -1 : 1;
+    return b.pendingQty - a.pendingQty;
+  });
+
+  return { suggestions, unmetNeeds };
+}
+
+async function buildTransfers() {
+  const localToken = ++transferBuildToken;
+  const visible = getVisibleHospitals();
+
+  const fallbackResult = generateTransferSuggestions(visible, false);
+  renderTransferSuggestions(fallbackResult.suggestions, false, fallbackResult.unmetNeeds);
+
+  const aiReady = await ensureAiDistanceCache(visible);
+  if (!aiReady) return;
+  if (localToken !== transferBuildToken) return;
+
+  const aiResult = generateTransferSuggestions(visible, true);
+  renderTransferSuggestions(aiResult.suggestions, true, aiResult.unmetNeeds);
 }
 
 function setDistrict(d, btn) {
@@ -1587,23 +1935,42 @@ function setupAutoScroll() {
 
 function startAutoScrollLoop() {
   if (autoScrollTimer) return;
-  autoScrollTimer = setInterval(() => {
+
+  const step = (ts) => {
     const container = document.querySelector('.table-scroll');
-    if (!container) return;
-    if (autoScrollPaused) return;
-    if (Date.now() < autoScrollPauseUntil) return;
+    if (!container) {
+      autoScrollTimer = requestAnimationFrame(step);
+      return;
+    }
+
+    if (!autoScrollLastTs) autoScrollLastTs = ts;
+    const dtMs = Math.min(64, Math.max(0, ts - autoScrollLastTs));
+    autoScrollLastTs = ts;
+
+    if (autoScrollPaused || Date.now() < autoScrollPauseUntil) {
+      autoScrollTimer = requestAnimationFrame(step);
+      return;
+    }
 
     const maxScroll = container.scrollHeight - container.clientHeight;
-    if (maxScroll <= 0) return;
+    if (maxScroll <= 0) {
+      autoScrollTimer = requestAnimationFrame(step);
+      return;
+    }
 
-    const next = container.scrollTop + 1;
+    const next = container.scrollTop + (AUTO_SCROLL_PX_PER_SEC * dtMs / 1000);
     if (next >= maxScroll) {
-      container.scrollTop = 0;
-      autoScrollPauseUntil = Date.now() + 900;
+      container.scrollTo({ top: 0, behavior: 'smooth' });
+      autoScrollPauseUntil = Date.now() + 1200;
+      autoScrollLastTs = 0;
     } else {
       container.scrollTop = next;
     }
-  }, 70);
+
+    autoScrollTimer = requestAnimationFrame(step);
+  };
+
+  autoScrollTimer = requestAnimationFrame(step);
 }
 
 function updateAutoScrollState() {
@@ -1659,8 +2026,18 @@ function doPrint(scope, value) {
 }
 
 function simulateRefresh() {
-  liveData = JSON.parse(JSON.stringify(RAW_DATA));
-  liveData.forEach(med => {
+  const sourceData = (Array.isArray(liveData) && liveData.length)
+    ? liveData
+    : RAW_DATA;
+
+  if (!Array.isArray(sourceData) || sourceData.length === 0) {
+    updateTimestamp();
+    applyFilters();
+    return;
+  }
+
+  const nextData = JSON.parse(JSON.stringify(sourceData));
+  nextData.forEach(med => {
     med.hospitals.forEach(hd => {
       if (hd.stock > 0) {
         const change = Math.floor((Math.random() - 0.4) * hd.stock * 0.08);
@@ -1669,6 +2046,7 @@ function simulateRefresh() {
       }
     });
   });
+  liveData = nextData;
   rebuildMasterHospitals();
   populateScopeSelectors();
   updateDataSourceLabel('LOCAL SAMPLE');
@@ -1800,7 +2178,7 @@ updateSelectedByBar();
 applyRolePolicy();
 setupAutoScroll();
 
-setInterval(refreshData, APP_CONFIG.refreshMs);
+// Auto-refresh is intentionally disabled until API integration is enabled.
 </script>
 </body>
 </html>
