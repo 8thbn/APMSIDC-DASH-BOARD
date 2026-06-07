@@ -413,6 +413,18 @@
   .legend-dot.even-row { background: rgba(255,255,255,0.06); border: 1px solid var(--border); }
   .legend-dot.odd-row  { background: transparent; border: 1px solid var(--border); }
 
+  .district-inline-tag {
+    display: inline-block;
+    margin-bottom: 3px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    opacity: 0.95;
+  }
+
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -1375,11 +1387,16 @@ function buildTableHeader() {
   });
   html += '</tr><tr>';
 
+  const districtColumnCount = {};
   visible.forEach((h, hi) => {
+    const withinDistrictIdx = districtColumnCount[h.district] || 0;
+    const showDistrictTag = withinDistrictIdx % 4 === 0;
+    districtColumnCount[h.district] = withinDistrictIdx + 1;
+
     const typeClass = `type-${h.type.toLowerCase()}`;
     const tone = districtPalette.get(h.district) || DISTRICT_COLOR_BANDS[0];
     const hospTint  = hi % 2 === 0 ? 'col-hosp-odd' : 'col-hosp-even';
-    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${tone.cellBg};color:${tone.text};font-weight:700" data-hospidx="${hi}">${h.name}<br><span style="font-size:9px;opacity:0.95;font-weight:600">[${h.type}] Stock</span></th>`;
+    html += `<th class="${typeClass} ${hospTint}" style="min-width:75px;background:${tone.cellBg};color:${tone.text};font-weight:700" data-hospidx="${hi}">${showDistrictTag ? `<span class="district-inline-tag">${h.district}</span><br>` : ''}${h.name}<br><span style="font-size:9px;opacity:0.95;font-weight:600">[${h.type}] Stock</span></th>`;
     html += `<th class="${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text};font-weight:700">3M Cons</th>`;
     html += `<th class="hosp-group ${hospTint}" style="font-size:10px;background:${tone.cellBg};color:${tone.text};font-weight:700">B-A</th>`;
   });
